@@ -5,3 +5,8 @@
     border:5px solid black;
 }
 
+#points {
+    position: absolute;
+    top: 1em;
+    right: 1em;
+}
