@@ -10,16 +10,18 @@
 ;; ------------------------------
 ;; States
 
+; TODO - BUG: death when J L quickly, going to the left
+; TODO - BUG: food can appear in walls
+
 (def states
   (atom {;; canvas object
          :game/speed 150
-         :game/level nil ;set by level-reset
+         :game/level 1 ;set by level-reset
          :game/score nil
 
          :canvas/element  (dom/getElement "canvas")
-         :canvas/container-element (dom/getElement "#main")
          :canvas/ctx  (.getContext (dom/getElement "canvas") "2d")
-         :canvas/background-color "white" ; default canvas color (background)
+         :canvas/background-color "#1c1c1c" ; default canvas color (background)
          :canvas/width  640
          :canvas/height 640
          ;; division of canvas
@@ -29,15 +31,16 @@
          :snake/body nil ;set by level-reset
          :snake/direction nil ;set by level-reset
          :snake/border 2                  ; border size
-         :snake/body-color "lime"         ; snake's body color
+         :snake/food-color "#949494"          ; the color of food
+         :snake/body-color "#d0d0d0"         ; snake's body color
          :snake/food nil                  ; when `nil`, regenerate it
-         :snake/food-color "red"          ; the color of food
          :snake/alive true                ; when `false`, stop game loop
          :food/points 10
          :wall/color "black"}))
 
-(def levels {:level-1 {:walls nil}
-             :level-2 {:walls [[12 13] [12 14] [12 15]]}
+(def levels {:level-2 {:walls nil}
+             :level-1 {:walls [[9 4] [9 5] [9 6] [9 7]
+                               [9 11] [9 12] [9 13] [9 14]]}
              :level-3 {}})
 
 (defn print-states
@@ -64,8 +67,8 @@
   []
   (canvas-reset)
   (swap! states assoc
-         :snake/body '([9 9] [8 9] [7 9])
-         :snake/direction [0 1]
+         :snake/body '([5 9] [4 9] [3 9])
+         :snake/direction [1 0]
          :snake/food nil)
   (js/alert (str "Level " (:game/level @states) " - Are you READY?")))
 
@@ -92,8 +95,8 @@
 ;; ------------------------------
 ;; Draw functions
 
-(defn draw-canvas-unit
-  "Draw a unit on canvas"
+(defn draw-rect
+  "Draw a rect on canvas"
   [[x y] color]
   (let [{:keys [:canvas/ctx :canvas-unit/width :canvas-unit/height]} @states]
     (aset ctx "fillStyle" color)
@@ -102,6 +105,21 @@
                (* y height)
                width
                height)))
+
+(defn draw-circle
+  "Draw a circle on canvas"
+  [[x y] color]
+  (let [{:keys [:canvas/ctx :canvas-unit/width :canvas-unit/height]} @states]
+    (aset ctx "fillStyle" color)
+    (.beginPath ctx)
+    (.arc ctx
+          (+ (/ width 2) (* x width))
+          (+ (/ height 2) (* y height))
+          (/ width 2)
+          0
+          (* 2 Math/PI)
+          false)
+    (.fill ctx)))
 
 (defn draw-text
   "Draw some text"
@@ -112,11 +130,15 @@
   [wall-units color]
   (when-not (nil? wall-units)
     (doseq [w wall-units]
-      (draw-canvas-unit w color))))
+      (draw-rect w color))))
+
+(defn get-walls
+  [level]
+  (get-in levels [(keyword (str "level-" level)) :walls]))
 
 (defn draw-wall-level
   [level]
-  (draw-wall (get-in levels [(keyword (str "level-" level)) :walls]) (:wall/color @states)))
+  (draw-wall (get-walls level) (:wall/color @states)))
 
 ;; ------------------------------
 ;;
@@ -141,13 +163,6 @@
   [dir1 dir2]
   (= [0 0] (axis-add dir1 dir2)))
 
-(defn on-keydown
-  [event]
-  (let [{:keys [:snake/direction]} @states
-        new-direction (keycode->direction (.-keyCode event))]
-    (when (and new-direction (not (opposite-direction? direction new-direction)))
-      (swap! states assoc-in [:snake/direction] new-direction))))
-
 (defn out-of-boundary?
   "Check if axis is exceed the game board boundary."
   [[x y]]
@@ -159,6 +174,12 @@
   [[x y]]
   (let [{:keys [:snake/body]} @states]
     (some #(axis-equal? [x y] %) body)))
+
+(defn wall-collision?
+  [coordinates]
+  (let [{:keys [:game/level]} @states
+        walls (get-walls level)]
+    (some #(= coordinates %) walls)))
 
 (defn eat-food?
   [[x y]]
@@ -172,18 +193,21 @@
         max-y (/ (:canvas/height @states) (:canvas-unit/height @states))]
     (when (nil? food)
       (loop [food [(rand-int max-x) (rand-int max-y)]]
-        (if-not (snake-collision? food)
+        (if-not (or
+                 (snake-collision? food)
+                 (wall-collision? food))
           (do
             (swap! states assoc-in [:snake/food] food)
-            (draw-canvas-unit food food-color)
+            (draw-circle food food-color)
             food)
-          (recur (food [(rand-int max-x) (rand-int max-y)])))))))
+          (recur ([(rand-int max-x) (rand-int max-y)])))))))
 
 (defn snake-dead?
   [snake-head]
   (or
    (snake-collision? snake-head)
-   (out-of-boundary? snake-head)))
+   (out-of-boundary? snake-head)
+   (wall-collision? snake-head)))
 
 (defn add-points
   [points]
@@ -193,7 +217,7 @@
 (defn next-level
   [score]
   (let [{:keys [:game/level]} @states]
-    (when (> score (* level 10))
+    (when (>= score (* level 100))
       (swap! states update-in [:game/level] + 1)
       (level-reset)
       (draw-wall-level (+ level 1)))))
@@ -214,10 +238,9 @@
     (if (snake-dead? head)
       (do
         (js/alert "You're DEAD!!!")
-        (swap! states assoc-in [:snake/alive] false)
-        (game-reset)))
+        (swap! states assoc-in [:snake/alive] false)))
     (when (:snake/alive @states)
-      (draw-canvas-unit head body-color)
+      (draw-rect head body-color)
       (if (eat-food? head)
         (do
           (swap! states assoc
@@ -225,10 +248,18 @@
                  :snake/body (conj body head))
           (add-points points))
         (do
-          (draw-canvas-unit tail background-color)
+          (draw-rect tail background-color)
           (swap! states assoc-in [:snake/body] (-> (conj body head) drop-last))))
       (next-level score)
       (js/window.setTimeout (fn [] (game-loop)) speed))))
+
+; TODO add "press enter" to restart the game
+(defn on-keydown
+  [event]
+  (let [{:keys [:snake/direction]} @states
+        new-direction (keycode->direction (.-keyCode event))]
+    (when (and new-direction (not (opposite-direction? direction new-direction)))
+      (swap! states assoc-in [:snake/direction] new-direction))))
 
 (defn init
   []
@@ -241,7 +272,14 @@
     (game-loop)))
 
 ; (resize-canvas)
-; (draw-canvas-unit [0 0] "red")
-; (draw-canvas-unit [10 10] "blue")
-; (draw-canvas-unit [19 19] "green")
+; (draw-rect [0 0] "red")
+; (draw-rect [10 10] "blue")
+; (draw-rect [19 19] "green")
 (init)
+
+(defn on-retry
+  [event]
+  (when (= false (:snake/alive @states))
+    (init)))
+
+(events/listen (.getElementById js/document "main") goog.events.EventType.CLICK on-retry)

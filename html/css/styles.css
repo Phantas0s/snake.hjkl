@@ -1,11 +1,20 @@
+body {
+    background-color: black;
+}
+
 #main {
+    background-color: #1c1c1c;
     width: 640px;
     height: 640px;
     margin: 10px auto;
     border:5px solid black;
 }
 
-#points {
+#score {
+    color: #fff;
+}
+
+#hud {
     position: absolute;
     top: 1em;
     right: 1em;
