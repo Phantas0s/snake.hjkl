@@ -7,6 +7,9 @@
 
 (enable-console-print!)
 
+;; ------------------------------
+;; States
+
 (def states
   (atom {;; canvas object
          :game/speed 150
@@ -31,7 +34,7 @@
          :snake/food-color "red"          ; the color of food
          :snake/alive true                ; when `false`, stop game loop
          :food/points 10
-         :wall/wall-color "brown"}))
+         :wall/color "black"}))
 
 (def levels {:level-1 {:walls nil}
              :level-2 {:walls [[12 13] [12 14] [12 15]]}
@@ -43,6 +46,9 @@
   (.log js/console "-------------------------------")
   (.log js/console (with-out-str (pprint @states)))
   (.log js/console "-------------------------------\n"))
+
+;; ------------------------------
+;; Reset functions
 
 (defn canvas-reset
   []
@@ -60,7 +66,8 @@
   (swap! states assoc
          :snake/body '([9 9] [8 9] [7 9])
          :snake/direction [0 1]
-         :snake/food nil))
+         :snake/food nil)
+  (js/alert (str "Level " (:game/level @states) " - Are you READY?")))
 
 (defn score-reset
   []
@@ -71,8 +78,8 @@
   (swap! states assoc
          :game/level 1
          :snake/alive true)
-  (level-reset)
-  (score-reset))
+  (score-reset)
+  (level-reset))
 
 (defn axis-add
   [[x1 y1] [x2 y2]]
@@ -81,6 +88,9 @@
 (defn axis-equal?
   [x y]
   (= x y))
+
+;; ------------------------------
+;; Draw functions
 
 (defn draw-canvas-unit
   "Draw a unit on canvas"
@@ -106,7 +116,10 @@
 
 (defn draw-wall-level
   [level]
-  (draw-wall (get-in levels [(keyword (str "level-" level)) :walls]) "black"))
+  (draw-wall (get-in levels [(keyword (str "level-" level)) :walls]) (:wall/color @states)))
+
+;; ------------------------------
+;;
 
 (defn resize-canvas
   "Resize the canvas according to the states"
@@ -183,8 +196,7 @@
     (when (> score (* level 10))
       (swap! states update-in [:game/level] + 1)
       (level-reset)
-      (draw-wall-level (+ level 1))
-      (js/alert (str "Level " (+ level 1) " - Are you READY?")))))
+      (draw-wall-level (+ level 1)))))
 
 (defn game-loop
   []
@@ -225,7 +237,6 @@
     (resize-canvas)
     (events/removeAll js/document)
     (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
-    (js/alert (str "Level " level " - Are you READY?"))
     (draw-wall-level level)
     (game-loop)))
 
