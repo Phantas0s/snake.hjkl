@@ -38,10 +38,30 @@
          :food/points 10
          :wall/color "black"}))
 
-(def levels {:level-2 {:walls nil}
-             :level-1 {:walls [[9 4] [9 5] [9 6] [9 7]
-                               [9 11] [9 12] [9 13] [9 14]]}
-             :level-3 {}})
+; WALLS
+
+(defn fill-wall-y
+  [[begin-y end-y] x]
+  (map #(vector x  %) (range begin-y (inc end-y))))
+
+(defn fill-wall-x
+  [[begin-x end-x] y]
+  (map #(vector % y) (range begin-x (inc end-x))))
+
+(def levels {:level-3 {:walls [[9 4] [9 5]
+                               [9 11] [9 12]]}
+             :level-2 {:walls
+                       (into [] (concat (fill-wall-y [4 7] 9)
+                                        (fill-wall-y [11 14] 9)))}
+             :level-1 {:walls
+                       (into [] (concat (fill-wall-x [6 13] 0)
+                                        (fill-wall-x [7 12] 1)
+                                        (fill-wall-x [8 11] 2)
+                                        (fill-wall-x [8 11] 3)
+                                        (fill-wall-x [8 11] 16)
+                                        (fill-wall-x [8 11] 17)
+                                        (fill-wall-x [7 12] 18)
+                                        (fill-wall-x [6 13] 19)))}})
 
 (defn print-states
   "Print current game states on console.(For debugging purpose)"
@@ -142,6 +162,7 @@
 
 ;; ------------------------------
 ;;
+
 
 (defn resize-canvas
   "Resize the canvas according to the states"
