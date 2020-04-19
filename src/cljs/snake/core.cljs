@@ -7,30 +7,35 @@
 
 (enable-console-print!)
 
+; TODO - BUG: death when J L quickly, going to the left
+; TODO - Implement watcher for draw-level / points
+
 ;; ------------------------------
 ;; States
 
-; TODO - BUG: death when J L quickly, going to the left
-; TODO - BUG: food can appear in walls
+(def canvas-width 640)
+(def canvas-height 640)
+(def canvas-background-color "#1c1c1c")
+(def canvas-element (dom/getElement "canvas"))
+(def canvas-ctx (.getContext (dom/getElement "canvas") "2d"))
+
+; canvas atomic units
+(def canvas-unit-width (/ canvas-width 20))
+(def canvas-unit-height (/ canvas-height 20))
+
+(def canvas-max-x (/ canvas-width canvas-unit-width))
+(def canvas-max-y (/ canvas-height canvas-unit-height))
+
+(def message-box-element (.getElementById js/document "message-box"))
 
 (def states
   (atom {;; canvas object
          :game/speed 150
          :game/level 1 ;set by level-reset
-         :game/score nil
-
-         :canvas/element  (dom/getElement "canvas")
-         :canvas/ctx  (.getContext (dom/getElement "canvas") "2d")
-         :canvas/background-color "#1c1c1c" ; default canvas color (background)
-         :canvas/width  640
-         :canvas/height 640
-         ;; division of canvas
-         :canvas-unit/width  32                 ; :canvas/width / 20
-         :canvas-unit/height 32 ;               ; :canvas/height / 20
+         :game/score 0 ;set by reset-level
          ;; snake object
          :snake/body nil ;set by level-reset
          :snake/direction nil ;set by level-reset
-         :snake/border 2                  ; border size
          :snake/food-color "#949494"          ; the color of food
          :snake/body-color "#d0d0d0"         ; snake's body color
          :snake/food nil                  ; when `nil`, regenerate it
@@ -48,12 +53,12 @@
   [[begin-x end-x] y]
   (map #(vector % y) (range begin-x (inc end-x))))
 
-(def levels {:level-3 {:walls [[9 4] [9 5]
+(def levels {:level-1 {:walls [[9 4] [9 5]
                                [9 11] [9 12]]}
              :level-2 {:walls
                        (into [] (concat (fill-wall-y [4 7] 9)
                                         (fill-wall-y [11 14] 9)))}
-             :level-1 {:walls
+             :level-3 {:walls
                        (into [] (concat (fill-wall-x [6 13] 0)
                                         (fill-wall-x [7 12] 1)
                                         (fill-wall-x [8 11] 2)
@@ -71,17 +76,82 @@
   (.log js/console "-------------------------------\n"))
 
 ;; ------------------------------
+;; Draw functions
+
+(defn draw-rect
+  "Draw a rect on canvas"
+  [[x y] color]
+  (aset canvas-ctx "fillStyle" color)
+  (.fillRect canvas-ctx
+             (* x canvas-unit-width)
+             (* y canvas-unit-height)
+             canvas-unit-width
+             canvas-unit-height))
+
+(defn draw-circle
+  "Draw a circle on canvas"
+  [[x y] color]
+  (aset canvas-ctx "fillStyle" color)
+  (.beginPath canvas-ctx)
+  (.arc canvas-ctx
+        (+ (/ canvas-unit-width 2) (* x canvas-unit-width))
+        (+ (/ canvas-unit-height 2) (* y canvas-unit-height))
+        (/ canvas-unit-width 2)
+        0
+        (* 2 Math/PI)
+        false)
+  (.fill canvas-ctx))
+
+(defn draw-text
+  "Draw some text"
+  [element text]
+  (set! element text))
+
+(defn draw-wall
+  [wall-units color]
+  (when-not (nil? wall-units)
+    (doseq [w wall-units]
+      (draw-rect w color))))
+
+(defn get-walls
+  [level]
+  (get-in levels [(keyword (str "level-" level)) :walls]))
+
+(defn draw-wall-level
+  [level]
+  (draw-wall (get-walls level) (:wall/color @states)))
+
+
+;; ------------------------------
 ;; Reset functions
+
+
+(defn hide-message-box
+  []
+  (set! (.-display (.-style message-box-element)) "none"))
+
+(defn show-message-box
+  ([]
+   (set! (.-display (.-style message-box-element)) "block"))
+  ([text]
+   (set! (.-display (.-style message-box-element)) "block")
+   (println text)
+   (draw-text text message-box-element)))
+
+(defn resize-canvas
+  "Resize the canvas according to the states"
+  []
+  (.setAttribute canvas-element "width" canvas-width)
+  (.setAttribute canvas-element "height" canvas-height))
 
 (defn canvas-reset
   []
-  (let [{:keys [:canvas/ctx :canvas/width :canvas/height :canvas/background-color]} @states]
-    (aset ctx "fillStyle" background-color)
-    (.fillRect ctx
-               0
-               0
-               width
-               height)))
+  (aset canvas-ctx "fillStyle" canvas-background-color)
+  (.fillRect canvas-ctx
+             0
+             0
+             canvas-width
+             canvas-height))
 
 (defn level-reset
   []
@@ -101,7 +171,9 @@
   (swap! states assoc
          :game/level 1
          :snake/alive true)
+  (draw-text "level" (:game/level @states))
   (score-reset)
+  (hide-message-box)
   (level-reset))
 
 (defn axis-add
@@ -111,65 +183,6 @@
 (defn axis-equal?
   [x y]
   (= x y))
-
-;; ------------------------------
-;; Draw functions
-
-(defn draw-rect
-  "Draw a rect on canvas"
-  [[x y] color]
-  (let [{:keys [:canvas/ctx :canvas-unit/width :canvas-unit/height]} @states]
-    (aset ctx "fillStyle" color)
-    (.fillRect ctx
-               (* x width)
-               (* y height)
-               width
-               height)))
-
-(defn draw-circle
-  "Draw a circle on canvas"
-  [[x y] color]
-  (let [{:keys [:canvas/ctx :canvas-unit/width :canvas-unit/height]} @states]
-    (aset ctx "fillStyle" color)
-    (.beginPath ctx)
-    (.arc ctx
-          (+ (/ width 2) (* x width))
-          (+ (/ height 2) (* y height))
-          (/ width 2)
-          0
-          (* 2 Math/PI)
-          false)
-    (.fill ctx)))
-
-(defn draw-text
-  "Draw some text"
-  [id text]
-  (set! (.-innerHTML (.getElementById js/document id)) text))
-
-(defn draw-wall
-  [wall-units color]
-  (when-not (nil? wall-units)
-    (doseq [w wall-units]
-      (draw-rect w color))))
-
-(defn get-walls
-  [level]
-  (get-in levels [(keyword (str "level-" level)) :walls]))
-
-(defn draw-wall-level
-  [level]
-  (draw-wall (get-walls level) (:wall/color @states)))
-
-;; ------------------------------
-;;
-
-
-(defn resize-canvas
-  "Resize the canvas according to the states"
-  []
-  (let [{:keys [:canvas/element :canvas/width :canvas/height]} @states]
-    (.setAttribute element "width" width)
-    (.setAttribute element "height" height)))
 
 (defn keycode->direction
   "Convert JavaScript keycode to direction array"
@@ -187,9 +200,7 @@
 (defn out-of-boundary?
   "Check if axis is exceed the game board boundary."
   [[x y]]
-  (let [max-x (/ (:canvas/width @states) (:canvas-unit/width @states))
-        max-y (/ (:canvas/height @states) (:canvas-unit/height @states))]
-    (or (>= x max-x) (< x 0) (>= y max-y) (< y 0))))
+  (or (>= x canvas-max-x) (< x 0) (>= y canvas-max-y) (< y 0)))
 
 (defn snake-collision?
   [[x y]]
@@ -197,10 +208,10 @@
     (some #(axis-equal? [x y] %) body)))
 
 (defn wall-collision?
-  [coordinates]
+  [coord]
   (let [{:keys [:game/level]} @states
         walls (get-walls level)]
-    (some #(= coordinates %) walls)))
+    (some #(= coord %) walls)))
 
 (defn eat-food?
   [[x y]]
@@ -209,19 +220,19 @@
 
 (defn generate-food
   []
-  (let [{:keys [:snake/food :snake/food-color]} @states
-        max-x (/ (:canvas/width @states) (:canvas-unit/width @states))
-        max-y (/ (:canvas/height @states) (:canvas-unit/height @states))]
+  (let [{:keys [:snake/food :snake/food-color]} @states]
     (when (nil? food)
-      (loop [food [(rand-int max-x) (rand-int max-y)]]
-        (if-not (or
-                 (snake-collision? food)
-                 (wall-collision? food))
-          (do
-            (swap! states assoc-in [:snake/food] food)
-            (draw-circle food food-color)
-            food)
-          (recur ([(rand-int max-x) (rand-int max-y)])))))))
+      (loop [rand-x (rand-int canvas-max-x)
+             rand-y (rand-int canvas-max-y)]
+        (let [food [rand-x rand-y]]
+          (if-not (or
+                   (snake-collision? food)
+                   (wall-collision? food))
+            (do
+              (swap! states assoc-in [:snake/food] food)
+              (draw-circle food food-color)
+              food)
+            (recur (rand-int canvas-max-x) (rand-int canvas-max-y))))))))
 
 (defn snake-dead?
   [snake-head]
@@ -238,9 +249,10 @@
 (defn next-level
   [score]
   (let [{:keys [:game/level]} @states]
-    (when (>= score (* level 100))
+    (when (>= score (* level 10))
       (swap! states update-in [:game/level] + 1)
       (level-reset)
+      (draw-text "level" (+ level 1))
       (draw-wall-level (+ level 1)))))
 
 (defn game-loop
@@ -248,7 +260,7 @@
   (let [{:keys [:game/speed
                 :game/score
                 :food/points
-                :canvas/background-color
+
                 :snake/body
                 :snake/body-color
                 :snake/direction]} @states
@@ -258,7 +270,7 @@
     (generate-food)
     (if (snake-dead? head)
       (do
-        (js/alert "You're DEAD!!!")
+        (show-message-box "You're DEAD!!!")
         (swap! states assoc-in [:snake/alive] false)))
     (when (:snake/alive @states)
       (draw-rect head body-color)
@@ -269,7 +281,7 @@
                  :snake/body (conj body head))
           (add-points points))
         (do
-          (draw-rect tail background-color)
+          (draw-rect tail canvas-background-color)
           (swap! states assoc-in [:snake/body] (-> (conj body head) drop-last))))
       (next-level score)
       (js/window.setTimeout (fn [] (game-loop)) speed))))
@@ -287,6 +299,7 @@
   (game-reset)
   (let [{:keys [:game/level]} @states]
     (resize-canvas)
+    (canvas-reset)
     (events/removeAll js/document)
     (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
     (draw-wall-level level)
@@ -298,9 +311,14 @@
 ; (draw-rect [19 19] "green")
 (init)
 
-(defn on-retry
+(defn on-retry-dead
   [event]
   (when (= false (:snake/alive @states))
     (init)))
 
-(events/listen (.getElementById js/document "main") goog.events.EventType.CLICK on-retry)
+(defn on-retry
+  [event]
+  (init))
+
+(events/listen (.getElementById js/document "main") goog.events.EventType.CLICK on-retry-dead)
+(events/listen (.getElementById js/document "retry") goog.events.EventType.CLICK on-retry)
