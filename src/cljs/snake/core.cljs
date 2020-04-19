@@ -27,12 +27,15 @@
 (def canvas-max-y (/ canvas-height canvas-unit-height))
 
 (def message-box-element (.getElementById js/document "message-box"))
+(def hud-score-element (.getElementById js/document "score"))
+(def hud-level-element (.getElementById js/document "level"))
 
 (def states
   (atom {;; canvas object
          :game/speed 150
          :game/level 1 ;set by level-reset
          :game/score 0 ;set by reset-level
+         :game/pause true
          ;; snake object
          :snake/body nil ;set by level-reset
          :snake/direction nil ;set by level-reset
@@ -104,8 +107,8 @@
 
 (defn draw-text
   "Draw some text"
-  [element text]
-  (set! element text))
+  [text element]
+  (set! (.-innerHTML element) text))
 
 (defn draw-wall
   [wall-units color]
@@ -126,17 +129,16 @@
 ;; Reset functions
 
 
-(defn hide-message-box
+(defn message-box-hide
   []
   (set! (.-display (.-style message-box-element)) "none"))
 
-(defn show-message-box
+(defn message-box-show
   ([]
    (set! (.-display (.-style message-box-element)) "block"))
   ([text]
    (set! (.-display (.-style message-box-element)) "block")
-   (println text)
-   (draw-text text message-box-element)))
+   (draw-text text (.getElementById js/document "message"))))
 
 (defn resize-canvas
   "Resize the canvas according to the states"
@@ -160,7 +162,8 @@
          :snake/body '([5 9] [4 9] [3 9])
          :snake/direction [1 0]
          :snake/food nil)
-  (js/alert (str "Level " (:game/level @states) " - Are you READY?")))
+  (draw-wall-level (:game/level @states))
+  (message-box-show (str "Level " (:game/level @states))))
 
 (defn score-reset
   []
@@ -170,10 +173,11 @@
   []
   (swap! states assoc
          :game/level 1
+         :game/pause true
          :snake/alive true)
-  (draw-text "level" (:game/level @states))
+  (draw-text (:game/level @states) hud-level-element)
   (score-reset)
-  (hide-message-box)
+  (message-box-hide)
   (level-reset))
 
 (defn axis-add
@@ -251,9 +255,9 @@
   (let [{:keys [:game/level]} @states]
     (when (>= score (* level 10))
       (swap! states update-in [:game/level] + 1)
+      (swap! states assoc-in [:game/pause] true)
       (level-reset)
-      (draw-text "level" (+ level 1))
-      (draw-wall-level (+ level 1)))))
+      (draw-text (:game/level @states) hud-level-element))))
 
 (defn game-loop
   []
@@ -266,13 +270,13 @@
                 :snake/direction]} @states
         head (axis-add (first body) direction)
         tail (last body)]
-    (draw-text "score" score)
+    (draw-text score hud-score-element)
     (generate-food)
     (if (snake-dead? head)
       (do
-        (show-message-box "You're DEAD!!!")
+        (message-box-show "You're DEAD!!!")
         (swap! states assoc-in [:snake/alive] false)))
-    (when (:snake/alive @states)
+    (when (and (:snake/alive @states) (not (:game/pause @states)))
       (draw-rect head body-color)
       (if (eat-food? head)
         (do
@@ -286,9 +290,20 @@
       (next-level score)
       (js/window.setTimeout (fn [] (game-loop)) speed))))
 
+(defn on-retry
+  [event]
+  (cond
+    (= false (:snake/alive @states)) (game-reset)
+    (= true (:game/pause @states)) (do
+                                     (message-box-hide)
+                                     (swap! states assoc-in [:game/pause] false)
+                                     (game-loop))))
+
 ; TODO add "press enter" to restart the game
 (defn on-keydown
   [event]
+  (when (= (.-keyCode event) goog.events.KeyCodes.ENTER)
+    (on-retry event))
   (let [{:keys [:snake/direction]} @states
         new-direction (keycode->direction (.-keyCode event))]
     (when (and new-direction (not (opposite-direction? direction new-direction)))
@@ -296,29 +311,14 @@
 
 (defn init
   []
-  (game-reset)
   (let [{:keys [:game/level]} @states]
     (resize-canvas)
     (canvas-reset)
+    (game-reset)
     (events/removeAll js/document)
     (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
-    (draw-wall-level level)
+
+    (events/listen (.getElementById js/document "message-box") goog.events.EventType.CLICK on-retry)
     (game-loop)))
 
-; (resize-canvas)
-; (draw-rect [0 0] "red")
-; (draw-rect [10 10] "blue")
-; (draw-rect [19 19] "green")
 (init)
-
-(defn on-retry-dead
-  [event]
-  (when (= false (:snake/alive @states))
-    (init)))
-
-(defn on-retry
-  [event]
-  (init))
-
-(events/listen (.getElementById js/document "main") goog.events.EventType.CLICK on-retry-dead)
-(events/listen (.getElementById js/document "retry") goog.events.EventType.CLICK on-retry)
