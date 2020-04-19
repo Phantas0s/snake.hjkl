@@ -3,19 +3,31 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Snake</title>
+    <title>Snake->HJKL</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body>
+    <h1>-Snake-HJKL-></h1>
     <div id="main">
-        <canvas id="canvas"></canvas>
-        <div id="hud">
-            <div id="score"></div>
-            <button id="retry">Retry</button>
+        <div id="game">
+            <canvas id="canvas"></canvas>
         </div>
-        <script type="text/javascript" src="js/main.js"></script>
+        <div id="hud">
+            <div class="hub-element">
+                LEVEL:
+                <div id="level">1</div>
+            </div>
+            <div class="hub-element">
+                SCORE:
+                <div id="score">0</div>
+            </div>
+
+            <div id="retry">Retry</div>
+        </div>
+        <div id="message-box"> </div>
     </div>
+    <script type="text/javascript" src="js/main.js"></script>
 </body>
 
 </html>

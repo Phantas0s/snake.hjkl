@@ -1,21 +1,109 @@
+@font-face {
+    font-family: '8-bit-wonder';
+    font-display: swap;
+    src: local('8 Bit Wonder'), local('8-BIT-WONDER'), url('./fonts/8-BIT-WONDER.TTF') format('truetype');
+    font-weight: normal; font-style: normal;
+}
+
+@font-face {
+    font-family: 'edit-undo-line';
+    font-display: swap;
+    src: local('Edit Undo Line'), local('edunline'), url('./fonts/edunline.ttf') format('truetype');
+    font-weight: normal; font-style: normal;
+}
+
+:root {
+  --background: #1c1c1c;
+  --width: 640px;
+  --height: 640px;
+}
+
+
 body {
     background-color: black;
+    font-family: "edit-undo-line", "arial", "serif";
+    font-size: 1.5em;
+}
+
+h1 {
+    width: var(--width);
+    margin: 0;
+    padding: 0 1em;
+    margin: 10px auto;
+    text-align: center;
+    color: white;
 }
 
 #main {
-    background-color: #1c1c1c;
-    width: 640px;
-    height: 640px;
+    position: relative;
+    width: 900px;
+    height: var(--height);
     margin: 10px auto;
-    border:5px solid black;
 }
 
-#score {
-    color: #fff;
+#game {
+    float: left;
+    width: var(--width);
+    height: var(--heigth);
+    border: 5px solid black;
 }
 
 #hud {
+    position: relative;
+    width: 200px;
+    height: var(--height);
+    display: inline-block;
+    vertical-align: top;
+    color: #d0d0d0;
+    background-color: var(--background);
+    border:5px solid black;
+    box-sizing: border-box;
+    background-color: ;
+    padding: 0 1em 1em 1em;
+}
+
+#score, #level {
+    font-size: 3em;
+    margin: 0 auto;
+    border-radius: 5px;
+}
+
+#level {
+    text-align: center;
+}
+
+.hub-element {
+    margin-top: 1em;
+}
+
+#hud #retry {
     position: absolute;
-    top: 1em;
-    right: 1em;
+    left:0;
+    bottom: 0;
+    background-color: #121212;
+    width: 100%;
+    font-size: 2em;
+    text-align: center;
+    cursor: pointer;
+    border-top: 10px solid black;
+}
+
+#hud #retry:hover {
+
+}
+
+#message-box {
+    position: absolute;
+    top: 220px;
+    left: 200px;
+    width: 300px;
+    padding: 1em;
+    color: white;
+    font-size: 2em;
+    text-align: center;
+    background-color: #121212;
+}
+
+#message-box p {
+    font-size: 0.5em;
 }
