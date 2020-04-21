@@ -35,14 +35,14 @@
          :game/speed 150
          :game/level 1 ;set by level-reset
          :game/score 0 ;set by reset-level
-         :game/pause true
+         :game/pause true ; when true stop game loop
          ;; snake object
          :snake/body nil ;set by level-reset
          :snake/direction nil ;set by level-reset
-         :snake/food-color "#949494"          ; the color of food
-         :snake/body-color "#d0d0d0"         ; snake's body color
+         :snake/food-color "#949494"
+         :snake/body-color "#d0d0d0"
          :snake/food nil                  ; when `nil`, regenerate it
-         :snake/alive true                ; when `false`, stop game loop
+         :snake/alive true                ; when `false`, stop game loop and reset game
          :food/points 10
          :wall/color "black"}))
 
@@ -253,8 +253,8 @@
 (defn next-level
   [score]
   (let [{:keys [:game/level]} @states]
-    (when (>= score (* level 10))
-      (swap! states update-in [:game/level] + 1)
+    (when (>= score (* level 100))
+      (swap! states update-in [:game/level] inc)
       (swap! states assoc-in [:game/pause] true)
       (level-reset)
       (draw-text (:game/level @states) hud-level-element))))
