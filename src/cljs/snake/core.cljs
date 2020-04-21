@@ -7,7 +7,6 @@
 
 (enable-console-print!)
 
-; TODO - BUG: death when J L quickly, going to the left
 ; TODO - Implement watcher for draw-level / points
 
 ;; ------------------------------
@@ -36,6 +35,7 @@
          :game/level 1 ;set by level-reset
          :game/score 0 ;set by reset-level
          :game/pause true ; when true stop game loop
+         :game/key-lock false
          ;; snake object
          :snake/body nil ;set by level-reset
          :snake/direction nil ;set by level-reset
@@ -259,6 +259,11 @@
       (level-reset)
       (draw-text (:game/level @states) hud-level-element))))
 
+(defn release-key-lock
+  "Fix a bug when pressing keys simultaneously"
+  []
+  (swap! states assoc-in [:game/key-lock] false))
+
 (defn game-loop
   []
   (let [{:keys [:game/speed
@@ -277,6 +282,7 @@
         (message-box-show "You're DEAD!!!")
         (swap! states assoc-in [:snake/alive] false)))
     (when (and (:snake/alive @states) (not (:game/pause @states)))
+      (release-key-lock)
       (draw-rect head body-color)
       (if (eat-food? head)
         (do
@@ -286,7 +292,7 @@
           (add-points points))
         (do
           (draw-rect tail canvas-background-color)
-          (swap! states assoc-in [:snake/body] (-> (conj body head) drop-last))))
+          (swap! states assoc-in [:snake/body] (drop-last (conj body head)))))
       (next-level score)
       (js/window.setTimeout (fn [] (game-loop)) speed))))
 
@@ -306,8 +312,10 @@
     (on-retry event))
   (let [{:keys [:snake/direction]} @states
         new-direction (keycode->direction (.-keyCode event))]
-    (when (and new-direction (not (opposite-direction? direction new-direction)))
-      (swap! states assoc-in [:snake/direction] new-direction))))
+    (when (and new-direction (not (:game/key-lock @states)) (not (opposite-direction? direction new-direction)))
+      (swap! states assoc
+             :game/key-lock true
+             :snake/direction new-direction))))
 
 (defn init
   []
@@ -317,7 +325,6 @@
     (game-reset)
     (events/removeAll js/document)
     (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
-
     (events/listen (.getElementById js/document "message-box") goog.events.EventType.CLICK on-retry)
     (game-loop)))
 
