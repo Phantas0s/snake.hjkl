@@ -12,10 +12,18 @@
     font-weight: normal; font-style: normal;
 }
 
+@font-face {
+    font-family: 'PixArrows';
+    font-display: swap;
+    src: local('PixArrows'), local('PixArrows'), url('./fonts/PixArrows.ttf') format('truetype');
+    font-weight: normal; font-style: normal;
+}
+
 :root {
   --background: #1c1c1c;
   --width: 640px;
-  --height: 640px;
+  --height: 650px;
+  --light-grey: #d0d0d0;
 }
 
 
@@ -54,7 +62,7 @@ h1 {
     height: var(--height);
     display: inline-block;
     vertical-align: top;
-    color: #d0d0d0;
+    color: var(--light-grey);
     background-color: var(--background);
     border: 5px solid black;
     box-sizing: border-box;
@@ -83,7 +91,7 @@ h1 {
 #message-box {
     position: absolute;
     top: 220px;
-    left: 200px;
+    left: 135px;
     width: 300px;
     padding: 1em;
     color: white;
@@ -98,4 +106,39 @@ h1 {
 
 #message-box p {
     margin: 0;
+}
+
+#help {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    margin: 0.2em;
+}
+
+.row {
+    width: 100%;
+    display: inline-flex;
+    flex-direction: row;
+    text-align: center;
+}
+
+.row div {
+    width: 33%;
+    font-size: 1.5em;
+    border: 1px solid #121212;
+    border-radius: 5px;
+}
+
+.arrows {
+    font-size: 0.8em;
+    font-family: 'PixArrows', 'Arial', 'Serif';
+}
+
+.letters {
+    cursor: help;
+}
+
+.arrows div {
+    border: none;
+    padding: 0 0 0.2em 0.2em;
 }
