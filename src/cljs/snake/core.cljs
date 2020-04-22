@@ -39,6 +39,7 @@
          ;; snake object
          :snake/body nil ;set by level-reset
          :snake/direction nil ;set by level-reset
+         :snake/direction-queue []
          :snake/food-color "#949494"
          :snake/body-color "#d0d0d0"
          :snake/food nil                  ; when `nil`, regenerate it
@@ -174,7 +175,8 @@
   (swap! states assoc
          :game/level 1
          :game/pause true
-         :snake/alive true)
+         :snake/alive true
+         :snake/direction-queue [])
   (draw-text (:game/level @states) hud-level-element)
   (score-reset)
   (message-box-hide)
@@ -259,10 +261,19 @@
       (level-reset)
       (draw-text (:game/level @states) hud-level-element))))
 
-(defn release-key-lock
+(defn release-key-lock!
   "Fix a bug when pressing keys simultaneously"
   []
   (swap! states assoc-in [:game/key-lock] false))
+
+(defn set-key-lock!
+  "Fix a bug when pressing keys simultaneously"
+  []
+  (swap! states assoc-in [:game/key-lock] true))
+
+(defn key-lock?
+  []
+  (:game/key-lock @states))
 
 (defn game-loop
   []
@@ -272,7 +283,8 @@
 
                 :snake/body
                 :snake/body-color
-                :snake/direction]} @states
+                :snake/direction
+                :snake/direction-queue]} @states
         head (axis-add (first body) direction)
         tail (last body)]
     (draw-text score hud-score-element)
@@ -282,8 +294,13 @@
         (message-box-show "You're DEAD!!!")
         (swap! states assoc-in [:snake/alive] false)))
     (when (and (:snake/alive @states) (not (:game/pause @states)))
-      (release-key-lock)
+      (let [next-snake-direction (first direction-queue)]
+        (when-not (or (empty? direction-queue) (opposite-direction? next-snake-direction direction))
+          (swap! states assoc
+                 :snake/direction next-snake-direction
+                 :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
       (draw-rect head body-color)
+      (release-key-lock!)
       (if (eat-food? head)
         (do
           (swap! states assoc
@@ -312,10 +329,11 @@
     (on-retry event))
   (let [{:keys [:snake/direction]} @states
         new-direction (keycode->direction (.-keyCode event))]
-    (when (and new-direction (not (:game/key-lock @states)) (not (opposite-direction? direction new-direction)))
-      (swap! states assoc
-             :game/key-lock true
-             :snake/direction new-direction))))
+    (if (key-lock?)
+      (swap! states assoc-in [:snake/direction-queue] (conj (:game/key-queue @states) new-direction))
+      (when (and new-direction (not (opposite-direction? direction new-direction)))
+        (swap! states assoc-in [:snake/direction] new-direction)
+        (set-key-lock!)))))
 
 (defn init
   []

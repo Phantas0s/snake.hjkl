@@ -1,0 +1,46 @@
+@import "core.css"; 
+
+body {
+    background-color: black;
+    font-size: 1.5em;
+}
+
+h1 {
+    width: var(--width);
+    margin: 0;
+    padding: 0 1em;
+    margin: 10px auto;
+    text-align: center;
+    color: white;
+}
+
+#main {
+    width: 100%;
+    display: inline-flex;
+    flex-direction: row;
+}
+
+#board {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 680px;
+    height: var(--heigth);
+    border: 5px solid white;
+}
+
+#coord {
+    padding: 1em;
+    color: white;
+    width: 500px;
+}
+
+.unit {
+    width: 32px;
+    height: 32px;
+    border: 1px solid white;
+}
+
+.white {
+    background: #d0d0d0;
+}

@@ -1,0 +1,35 @@
+@font-face {
+    font-family: '8-bit-wonder';
+    font-display: swap;
+    src: local('8 Bit Wonder'), local('8-BIT-WONDER'), url('./fonts/8-BIT-WONDER.TTF') format('truetype');
+    font-weight: normal; font-style: normal;
+}
+
+@font-face {
+    font-family: 'edit-undo-line';
+    font-display: swap;
+    src: local('Edit Undo Line'), local('edunline'), url('./fonts/edunline.ttf') format('truetype');
+    font-weight: normal; font-style: normal;
+}
+
+@font-face {
+    font-family: 'PixArrows';
+    font-display: swap;
+    src: local('PixArrows'), local('PixArrows'), url('./fonts/PixArrows.ttf') format('truetype');
+    font-weight: normal; font-style: normal;
+}
+
+:root {
+  --background: #1c1c1c;
+  --width: 640px;
+  --height: 650px;
+  --light-grey: #d0d0d0;
+}
+
+
+body {
+    background-color: black;
+    font-family: "edit-undo-line", "arial", "serif";
+    font-size: 1.5em;
+}
+
