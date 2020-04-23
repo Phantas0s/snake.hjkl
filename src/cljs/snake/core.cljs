@@ -57,7 +57,7 @@
   [[begin-x end-x] y]
   (map #(vector % y) (range begin-x (inc end-x))))
 
-(def levels {:level-1 {:walls [[9 4] [9 5]
+(def levels {:level-4 {:walls [[9 4] [9 5]
                                [9 11] [9 12]]}
              :level-2 {:walls
                        (into [] (concat (fill-wall-y [4 7] 9)
@@ -70,7 +70,9 @@
                                         (fill-wall-x [8 11] 16)
                                         (fill-wall-x [8 11] 17)
                                         (fill-wall-x [7 12] 18)
-                                        (fill-wall-x [6 13] 19)))}})
+                                        (fill-wall-x [6 13] 19)))}
+             :level-5 {:walls [[10 10] [10 9] [10 8] [10 7] [9 7] [9 8] [9 9] [9 10] [9 11] [10 11] [10 12] [9 12]]}
+             :level-1 {:walls [[11 8] [10 8] [10 9] [11 9] [10 6] [10 5] [11 5] [11 6] [10 11] [10 12] [11 12] [11 11] [19 7] [18 8] [17 9] [18 9] [19 9] [19 8] [19 11] [18 11] [17 11] [18 12] [19 13] [19 12] [15 10] [13 10] [13 8] [15 8] [13 6] [13 5] [15 5] [15 6] [13 12] [13 13] [15 12] [15 13] [10 13] [11 13]]}})
 
 (defn print-states
   "Print current game states on console.(For debugging purpose)"
