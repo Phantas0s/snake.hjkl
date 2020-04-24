@@ -3,6 +3,7 @@
             [goog.events :as events]
             [goog.events.KeyCodes]
             [goog.events.EventType]
+            [snake.levels :refer [levels]]
             [clojure.pprint :refer [pprint]]))
 
 (enable-console-print!)
@@ -29,6 +30,8 @@
 (def hud-score-element (.getElementById js/document "score"))
 (def hud-level-element (.getElementById js/document "level"))
 
+(def next-level-score 10)
+
 (def states
   (atom {;; canvas object
          :game/speed 150
@@ -48,31 +51,6 @@
          :wall/color "black"}))
 
 ; WALLS
-
-(defn fill-wall-y
-  [[begin-y end-y] x]
-  (map #(vector x  %) (range begin-y (inc end-y))))
-
-(defn fill-wall-x
-  [[begin-x end-x] y]
-  (map #(vector % y) (range begin-x (inc end-x))))
-
-(def levels {:level-4 {:walls [[9 4] [9 5]
-                               [9 11] [9 12]]}
-             :level-2 {:walls
-                       (into [] (concat (fill-wall-y [4 7] 9)
-                                        (fill-wall-y [11 14] 9)))}
-             :level-3 {:walls
-                       (into [] (concat (fill-wall-x [6 13] 0)
-                                        (fill-wall-x [7 12] 1)
-                                        (fill-wall-x [8 11] 2)
-                                        (fill-wall-x [8 11] 3)
-                                        (fill-wall-x [8 11] 16)
-                                        (fill-wall-x [8 11] 17)
-                                        (fill-wall-x [7 12] 18)
-                                        (fill-wall-x [6 13] 19)))}
-             :level-5 {:walls [[10 10] [10 9] [10 8] [10 7] [9 7] [9 8] [9 9] [9 10] [9 11] [10 11] [10 12] [9 12]]}
-             :level-1 {:walls [[11 8] [10 8] [10 9] [11 9] [10 6] [10 5] [11 5] [11 6] [10 11] [10 12] [11 12] [11 11] [19 7] [18 8] [17 9] [18 9] [19 9] [19 8] [19 11] [18 11] [17 11] [18 12] [19 13] [19 12] [15 10] [13 10] [13 8] [15 8] [13 6] [13 5] [15 5] [15 6] [13 12] [13 13] [15 12] [15 13] [10 13] [11 13]]}})
 
 (defn print-states
   "Print current game states on console.(For debugging purpose)"
@@ -122,6 +100,7 @@
 (defn get-walls
   [level]
   (get-in levels [(keyword (str "level-" level)) :walls]))
+(get-walls 1)
 
 (defn draw-wall-level
   [level]
@@ -257,7 +236,7 @@
 (defn next-level
   [score]
   (let [{:keys [:game/level]} @states]
-    (when (>= score (* level 100))
+    (when (>= score (* level next-level-score))
       (swap! states update-in [:game/level] inc)
       (swap! states assoc-in [:game/pause] true)
       (level-reset)

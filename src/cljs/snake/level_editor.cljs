@@ -1,4 +1,4 @@
-(ns snake.level
+(ns snake.level-editor
   (:require [goog.dom :as dom]
             [goog.dom.classlist :as classlist]
             [goog.events :as events]
@@ -6,20 +6,21 @@
             [goog.events.EventType]
             [clojure.pprint :refer [pprint]]))
 
-(def level (atom []))
-
 (enable-console-print!)
 
 (def board (.getElementById js/document "board"))
 (def coord (.getElementById js/document "coord"))
 (def reset-button (.getElementById js/document "reset"))
 
+(def level (atom []))
+
+(def snake-body [[5 9] [4 9] [3 9]])
 (defn create-unit
   [coord]
-  (str "
-       <div class='unit' id='" coord "'>
-                                </div>
-                                "))
+  (if (some #(= coord %) snake-body)
+    (str "<div class='snake'></div>")
+    (str "<div class='unit' id='" coord "'></div>")))
+
 (defn create-board-elements
   [y x-total y-total]
   (loop [next-y y
@@ -36,9 +37,18 @@
 
 (defn write-coord
   []
-  (set! (.-innerHTML coord) (str @level)))
+  (set! (.-value coord) (str @level)))
 
 (def white-class "white")
+; (defn read-coord
+;   []
+;   (let [levels (.-value coord)]
+;     (swap! level empty)
+;     (swap! level into levels)
+;     (doseq [lvl levels] (classlist/toggle (.getElementById lvl) white-class))))
+
+; (read-coord)
+
 (defn on-select-unit
   [event]
   (let [el (.-target event)
@@ -53,7 +63,6 @@
 
 (defn on-reset
   []
-  (println "hello")
   (doall (map #(classlist/toggle % white-class) (array-seq (dom/getElementsByClass white-class))))
   (swap! level empty)
   (write-coord))
