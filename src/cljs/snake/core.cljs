@@ -32,25 +32,25 @@
 
 (def next-level-score 10)
 
+(def food-points 10)
+
 (def states
-  (atom {;; canvas object
-         :game/speed 150
-         :game/level 1 ;set by level-reset
+  (atom {:game/speed 150
          :game/score 0 ;set by reset-level
-         :game/pause true ; when true stop game loop
          :game/key-lock false
-         ;; snake object
-         :snake/body nil ;set by level-reset
-         :snake/direction nil ;set by level-reset
-         :snake/direction-queue []
+
          :snake/food-color "#949494"
          :snake/body-color "#d0d0d0"
-         :snake/food nil                  ; when `nil`, regenerate it
-         :snake/alive true                ; when `false`, stop game loop and reset game
-         :food/points 10
+         :snake/food nil; when `nil`, regenerate it
          :wall/color "black"}))
 
-; WALLS
+(def defaults {:snake/body '([5 9] [4 9] [3 9])
+               :snake/direction [1 0]
+               :snake/food nil
+               :game/level 1
+               :game/pause true
+               :snake/alive true
+               :snake/direction-queue []})
 
 (defn print-states
   "Print current game states on console.(For debugging purpose)"
@@ -141,9 +141,9 @@
   []
   (canvas-reset)
   (swap! states assoc
-         :snake/body '([5 9] [4 9] [3 9])
-         :snake/direction [1 0]
-         :snake/food nil)
+         :snake/body (:snake/body defaults)
+         :snake/direction (:snake/direction defaults)
+         :snake/food (:snake/food defaults))
   (draw-wall-level (:game/level @states))
   (message-box-show (str "Level " (:game/level @states))))
 
@@ -154,10 +154,10 @@
 (defn game-reset
   []
   (swap! states assoc
-         :game/level 1
-         :game/pause true
-         :snake/alive true
-         :snake/direction-queue [])
+         :game/level (:game/level defaults)
+         :game/pause (:game/pause defaults)
+         :snake/alive (:snake/alive defaults)
+         :snake/direction-queue (:snake/direction-queue defaults))
   (draw-text (:game/level @states) hud-level-element)
   (score-reset)
   (message-box-hide)
@@ -260,8 +260,6 @@
   []
   (let [{:keys [:game/speed
                 :game/score
-                :food/points
-
                 :snake/body
                 :snake/body-color
                 :snake/direction
@@ -287,7 +285,7 @@
           (swap! states assoc
                  :snake/food nil
                  :snake/body (conj body head))
-          (add-points points))
+          (add-points food-points))
         (do
           (draw-rect tail canvas-background-color)
           (swap! states assoc-in [:snake/body] (drop-last (conj body head)))))

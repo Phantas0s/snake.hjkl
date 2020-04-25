@@ -11,8 +11,9 @@
 (def board (.getElementById js/document "board"))
 (def coord (.getElementById js/document "coord"))
 (def reset-button (.getElementById js/document "reset"))
+(def refresh-button (.getElementById js/document "refresh"))
 
-(def level (atom []))
+(def walls (atom []))
 
 (def snake-body [[5 9] [4 9] [3 9]])
 (defn create-unit
@@ -31,41 +32,57 @@
 
 (set! (.-innerHTML board) (clojure.string/join (create-board-elements 0 20 20)))
 
-(defn has-level?
+(defn has-walls?
   [lvl]
-  (filter #(= lvl %) @level))
+  (filter #(= lvl %) @walls))
 
 (defn write-coord
   []
-  (set! (.-value coord) (str @level)))
+  (set! (.-value coord) (str @walls)))
+
+(defn replace-walls
+  "Replace every walls of the level with new walls"
+  [new-walls]
+  (swap! walls empty)
+  (swap! walls into new-walls))
 
 (def white-class "white")
-; (defn read-coord
-;   []
-;   (let [levels (.-value coord)]
-;     (swap! level empty)
-;     (swap! level into levels)
-;     (doseq [lvl levels] (classlist/toggle (.getElementById lvl) white-class))))
-
-; (read-coord)
+(defn read-coord
+  "Read the walls coordinates from the coordinates textarea"
+  []
+  (let [new-walls (reader/read-string (.-value coord))]
+    (doseq [walls new-walls] (classlist/toggle (.getElementById js/document (str walls)) white-class))
+    new-walls))
 
 (defn on-select-unit
+  "When clicking on the board to create a wall"
   [event]
   (let [el (.-target event)
         lvl (reader/read-string (.-id el))]
     (classlist/toggle el white-class)
-    (if (or (empty? @level) (empty? (has-level? lvl)))
-      (swap! level into (vector lvl))
-      (let [new-levels (filter #(not= lvl %) @level)]
-        (swap! level empty)
-        (swap! level into new-levels))))
+    (if (or (empty? @walls) (empty? (has-walls? lvl)))
+      (swap! walls into (vector lvl))
+      (let [new-walls (filter #(not= lvl %) @walls)]
+        (replace-walls new-walls))))
   (write-coord))
 
-(defn on-reset
+(defn reset-board
   []
   (doall (map #(classlist/toggle % white-class) (array-seq (dom/getElementsByClass white-class))))
-  (swap! level empty)
+  (swap! walls empty))
+
+(defn on-reset
+  "Delete every walls on the board"
+  []
+  (reset-board)
   (write-coord))
+
+(defn on-refresh
+  "Add the walls on the board from the coordinates textarea"
+  []
+  (reset-board)
+  (replace-walls (read-coord)))
 
 (events/listen board goog.events.EventType.CLICK on-select-unit)
 (events/listen reset-button goog.events.EventType.CLICK on-reset)
+(events/listen refresh-button goog.events.EventType.CLICK on-refresh)
