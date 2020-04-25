@@ -8,30 +8,28 @@
 
 (enable-console-print!)
 
-; TODO - Implement watcher for draw-level / points
+; TODO - Implement watcher for draw-level / points?
 
 ;; ------------------------------
 ;; States
 
-(def canvas-width 640)
-(def canvas-height 640)
-(def canvas-background-color "#1c1c1c")
-(def canvas-element (dom/getElement "canvas"))
-(def canvas-ctx (.getContext (dom/getElement "canvas") "2d"))
+; TODO refactor all this messy states. Make immutable what we can.
 
-; canvas atomic units
-(def canvas-unit-width (/ canvas-width 20))
-(def canvas-unit-height (/ canvas-height 20))
-
-(def canvas-max-x (/ canvas-width canvas-unit-width))
-(def canvas-max-y (/ canvas-height canvas-unit-height))
+(def canvas {:width 640
+             :height 640
+             :background-color "#1c1c1c"
+             :element (dom/getElement "canvas")
+             :ctx (.getContext (dom/getElement "canvas") "2d")
+             :unit/width 32 ;(/ (:width canvas) 20)
+             :unit/height 32 ;(/ (:height canvas) 20)
+             :max-x 20 ;(/ (:canvas-width canvas) (:unit/width canvas))
+             :max-y 20}) ;(/ (:canvas-height canvas) (:unit/height canvas))})
 
 (def message-box-element (.getElementById js/document "message-box"))
 (def hud-score-element (.getElementById js/document "score"))
 (def hud-level-element (.getElementById js/document "level"))
 
 (def next-level-score 10)
-
 (def food-points 10)
 
 (def states
@@ -65,26 +63,28 @@
 (defn draw-rect
   "Draw a rect on canvas"
   [[x y] color]
-  (aset canvas-ctx "fillStyle" color)
-  (.fillRect canvas-ctx
-             (* x canvas-unit-width)
-             (* y canvas-unit-height)
-             canvas-unit-width
-             canvas-unit-height))
+  (let [{:keys [:ctx :unit/width :unit/height]} canvas]
+    (aset ctx "fillStyle" color)
+    (.fillRect ctx
+               (* x width)
+               (* y height)
+               width
+               height)))
 
 (defn draw-circle
   "Draw a circle on canvas"
   [[x y] color]
-  (aset canvas-ctx "fillStyle" color)
-  (.beginPath canvas-ctx)
-  (.arc canvas-ctx
-        (+ (/ canvas-unit-width 2) (* x canvas-unit-width))
-        (+ (/ canvas-unit-height 2) (* y canvas-unit-height))
-        (/ canvas-unit-width 2)
-        0
-        (* 2 Math/PI)
-        false)
-  (.fill canvas-ctx))
+  (let [{:keys [:ctx :unit/width :unit/height]} canvas]
+    (aset ctx "fillStyle" color)
+    (.beginPath ctx)
+    (.arc ctx
+          (+ (/ width 2) (* x width))
+          (+ (/ height 2) (* y height))
+          (/ height 2)
+          0
+          (* 2 Math/PI)
+          false)
+    (.fill ctx)))
 
 (defn draw-text
   "Draw some text"
@@ -106,7 +106,6 @@
   [level]
   (draw-wall (get-walls level) (:wall/color @states)))
 
-
 ;; ------------------------------
 ;; Reset functions
 
@@ -125,27 +124,31 @@
 (defn resize-canvas
   "Resize the canvas according to the states"
   []
-  (.setAttribute canvas-element "width" canvas-width)
-  (.setAttribute canvas-element "height" canvas-height))
+  (let [{:keys [:element :width :height]} canvas]
+    (.setAttribute element "width" width)
+    (.setAttribute element "height" height)))
 
 (defn canvas-reset
   []
-  (aset canvas-ctx "fillStyle" canvas-background-color)
-  (.fillRect canvas-ctx
-             0
-             0
-             canvas-width
-             canvas-height))
+  (let [{:keys [:background-color :ctx :width :height]} canvas]
+    (aset ctx "fillStyle" background-color)
+    (.fillRect ctx
+               0
+               0
+               width
+               height)))
 
 (defn level-reset
   []
   (canvas-reset)
-  (swap! states assoc
-         :snake/body (:snake/body defaults)
-         :snake/direction (:snake/direction defaults)
-         :snake/food (:snake/food defaults))
-  (draw-wall-level (:game/level @states))
-  (message-box-show (str "Level " (:game/level @states))))
+  (let [{:keys [:snake/body :snake/direction :snake/food]} defaults
+        {:keys [:game/level]} @states]
+    (swap! states assoc
+           :snake/body body
+           :snake/direction direction
+           :snake/food food)
+    (draw-wall-level level)
+    (message-box-show (str "Level " level))))
 
 (defn score-reset
   []
@@ -153,6 +156,7 @@
 
 (defn game-reset
   []
+  ; todo put all of that in let
   (swap! states assoc
          :game/level (:game/level defaults)
          :game/pause (:game/pause defaults)
@@ -163,6 +167,9 @@
   (message-box-hide)
   (level-reset))
 
+;; ------------------------------
+;; Helpers
+
 (defn axis-add
   [[x1 y1] [x2 y2]]
   [(+ x1 x2) (+ y1 y2)])
@@ -171,23 +178,8 @@
   [x y]
   (= x y))
 
-(defn keycode->direction
-  "Convert JavaScript keycode to direction array"
-  [keycode]
-  (get {goog.events.KeyCodes.K [0 -1] ;up
-        goog.events.KeyCodes.J [0 1] ;down
-        goog.events.KeyCodes.H [-1 0] ;left
-        goog.events.KeyCodes.L [1 0]} ;right
-       keycode nil))
-
-(defn opposite-direction?
-  [dir1 dir2]
-  (= [0 0] (axis-add dir1 dir2)))
-
-(defn out-of-boundary?
-  "Check if axis is exceed the game board boundary."
-  [[x y]]
-  (or (>= x canvas-max-x) (< x 0) (>= y canvas-max-y) (< y 0)))
+;; ------------------------------
+;; Collision
 
 (defn snake-collision?
   [[x y]]
@@ -200,6 +192,45 @@
         walls (get-walls level)]
     (some #(= coord %) walls)))
 
+;; ------------------------------
+;; Keys Mechanics
+
+(defn keycode->direction
+  "Convert JavaScript keycode to direction array"
+  [keycode]
+  (get {goog.events.KeyCodes.K [0 -1] ;up
+        goog.events.KeyCodes.J [0 1] ;down
+        goog.events.KeyCodes.H [-1 0] ;left
+        goog.events.KeyCodes.L [1 0]} ;right
+       keycode nil))
+
+(defn release-key-lock!
+  "Fix a bug when pressing keys simultaneously"
+  []
+  (swap! states assoc-in [:game/key-lock] false))
+
+(defn set-key-lock!
+  "Fix a bug when pressing keys simultaneously"
+  []
+  (swap! states assoc-in [:game/key-lock] true))
+
+(defn key-lock?
+  []
+  (:game/key-lock @states))
+
+;; ------------------------------
+;; Game Mechanics
+
+(defn opposite-direction?
+  [dir1 dir2]
+  (= [0 0] (axis-add dir1 dir2)))
+
+(defn out-of-boundary?
+  "Check if axis is exceed the game board boundary."
+  [[x y]]
+  (let [{:keys [:max-x :max-y]} canvas]
+    (or (>= x max-x) (< x 0) (>= y max-y) (< y 0))))
+
 (defn eat-food?
   [[x y]]
   (let [{:keys [:snake/food]} @states]
@@ -207,10 +238,11 @@
 
 (defn generate-food
   []
-  (let [{:keys [:snake/food :snake/food-color]} @states]
+  (let [{:keys [:snake/food :snake/food-color]} @states
+        {:keys [:max-x :max-y]} canvas]
     (when (nil? food)
-      (loop [rand-x (rand-int canvas-max-x)
-             rand-y (rand-int canvas-max-y)]
+      (loop [rand-x (rand-int max-x)
+             rand-y (rand-int max-y)]
         (let [food [rand-x rand-y]]
           (if-not (or
                    (snake-collision? food)
@@ -219,7 +251,7 @@
               (swap! states assoc-in [:snake/food] food)
               (draw-circle food food-color)
               food)
-            (recur (rand-int canvas-max-x) (rand-int canvas-max-y))))))))
+            (recur (rand-int max-x) (rand-int max-y))))))))
 
 (defn snake-dead?
   [snake-head]
@@ -242,20 +274,6 @@
       (level-reset)
       (draw-text (:game/level @states) hud-level-element))))
 
-(defn release-key-lock!
-  "Fix a bug when pressing keys simultaneously"
-  []
-  (swap! states assoc-in [:game/key-lock] false))
-
-(defn set-key-lock!
-  "Fix a bug when pressing keys simultaneously"
-  []
-  (swap! states assoc-in [:game/key-lock] true))
-
-(defn key-lock?
-  []
-  (:game/key-lock @states))
-
 (defn game-loop
   []
   (let [{:keys [:game/speed
@@ -268,10 +286,9 @@
         tail (last body)]
     (draw-text score hud-score-element)
     (generate-food)
-    (if (snake-dead? head)
-      (do
-        (message-box-show "You're DEAD!!!")
-        (swap! states assoc-in [:snake/alive] false)))
+    (when (snake-dead? head)
+      (message-box-show "You're DEAD!!!")
+      (swap! states assoc-in [:snake/alive] false))
     (when (and (:snake/alive @states) (not (:game/pause @states)))
       (let [next-snake-direction (first direction-queue)]
         (when-not (or (empty? direction-queue) (opposite-direction? next-snake-direction direction))
@@ -287,7 +304,7 @@
                  :snake/body (conj body head))
           (add-points food-points))
         (do
-          (draw-rect tail canvas-background-color)
+          (draw-rect tail (:background-color canvas))
           (swap! states assoc-in [:snake/body] (drop-last (conj body head)))))
       (next-level score)
       (js/window.setTimeout (fn [] (game-loop)) speed))))
@@ -301,7 +318,6 @@
                                      (swap! states assoc-in [:game/pause] false)
                                      (game-loop))))
 
-; TODO add "press enter" to restart the game
 (defn on-keydown
   [event]
   (when (= (.-keyCode event) goog.events.KeyCodes.ENTER)
@@ -316,13 +332,12 @@
 
 (defn init
   []
-  (let [{:keys [:game/level]} @states]
-    (resize-canvas)
-    (canvas-reset)
-    (game-reset)
-    (events/removeAll js/document)
-    (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
-    (events/listen (.getElementById js/document "message-box") goog.events.EventType.CLICK on-retry)
-    (game-loop)))
+  (resize-canvas)
+  (canvas-reset)
+  (game-reset)
+  (events/removeAll js/document)
+  (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
+  (events/listen message-box-element goog.events.EventType.CLICK on-retry)
+  (game-loop))
 
 (init)
