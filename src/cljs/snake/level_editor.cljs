@@ -43,6 +43,7 @@
 (defn replace-walls
   "Replace every walls of the level with new walls"
   [new-walls]
+  ; TODO see to use reset! here
   (swap! walls empty)
   (swap! walls into new-walls))
 

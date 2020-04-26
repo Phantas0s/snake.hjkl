@@ -29,7 +29,7 @@
 (def hud-score-element (.getElementById js/document "score"))
 (def hud-level-element (.getElementById js/document "level"))
 
-(def next-level-score 10)
+(def next-level-score 100)
 (def food-points 10)
 
 (def states

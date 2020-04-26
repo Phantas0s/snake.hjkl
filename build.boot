@@ -1,4 +1,3 @@
-
 (set-env!
  :source-paths #{"src/cljs"}
  :resource-paths #{"html"}
@@ -22,6 +21,8 @@
 (deftask dev
   "Launch Immediate Feedback Development Environment"
   []
+  (task-options! cljs {:optimizations :none}
+                 reload {:on-jsload 'snake.core/init})
   (comp
    (serve :dir "target")
    (watch)
@@ -29,3 +30,8 @@
    (cljs-repl) ;; before cljs task
    (cljs)
    (target :dir #{"target"})))
+
+(deftask prod
+  []
+  (task-options! cljs {:optimizations :advanced})
+  identity)
