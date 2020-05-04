@@ -29,26 +29,27 @@
 (def hud-score-element (.getElementById js/document "score"))
 (def hud-level-element (.getElementById js/document "level"))
 
-(def next-level-score 100)
+(def next-level-score 10)
 (def food-points 10)
+(def food-color "#949494")
 
 (def states
   (atom {:game/speed 150
-         :game/score 0 ;set by reset-level
          :game/key-lock false
 
-         :snake/food-color "#949494"
          :snake/body-color "#d0d0d0"
          :snake/food nil; when `nil`, regenerate it
          :wall/color "black"}))
 
-(def defaults {:snake/body '([5 9] [4 9] [3 9])
-               :snake/direction [1 0]
-               :snake/food nil
-               :game/level 1
-               :game/pause true
-               :snake/alive true
-               :snake/direction-queue []})
+(def snake-defaults {:snake/body '([5 9] [4 9] [3 9])
+                     :snake/direction [1 0]
+                     :snake/food nil
+                     :snake/alive true
+                     :snake/direction-queue []})
+
+(def defaults (merge {:game/level 1
+                      :game/pause true
+                      :game/score 0} snake-defaults))
 
 (defn print-states
   "Print current game states on console.(For debugging purpose)"
@@ -86,7 +87,7 @@
           false)
     (.fill ctx)))
 
-(defn draw-text
+(defn update-text!
   "Draw some text"
   [text element]
   (set! (.-innerHTML element) text))
@@ -109,7 +110,6 @@
 ;; ------------------------------
 ;; Reset functions
 
-
 (defn message-box-hide
   []
   (set! (.-display (.-style message-box-element)) "none"))
@@ -119,7 +119,7 @@
    (set! (.-display (.-style message-box-element)) "block"))
   ([text]
    (set! (.-display (.-style message-box-element)) "block")
-   (draw-text text (.getElementById js/document "message"))))
+   (update-text! text (.getElementById js/document "message"))))
 
 (defn resize-canvas
   "Resize the canvas according to the states"
@@ -127,45 +127,6 @@
   (let [{:keys [:element :width :height]} canvas]
     (.setAttribute element "width" width)
     (.setAttribute element "height" height)))
-
-(defn canvas-reset
-  []
-  (let [{:keys [:background-color :ctx :width :height]} canvas]
-    (aset ctx "fillStyle" background-color)
-    (.fillRect ctx
-               0
-               0
-               width
-               height)))
-
-(defn level-reset
-  []
-  (canvas-reset)
-  (let [{:keys [:snake/body :snake/direction :snake/food]} defaults
-        {:keys [:game/level]} @states]
-    (swap! states assoc
-           :snake/body body
-           :snake/direction direction
-           :snake/food food)
-    (draw-wall-level level)
-    (message-box-show (str "Level " level))))
-
-(defn score-reset
-  []
-  (swap! states assoc-in [:game/score] 0))
-
-(defn game-reset
-  []
-  ; todo put all of that in let
-  (swap! states assoc
-         :game/level (:game/level defaults)
-         :game/pause (:game/pause defaults)
-         :snake/alive (:snake/alive defaults)
-         :snake/direction-queue (:snake/direction-queue defaults))
-  (draw-text (:game/level @states) hud-level-element)
-  (score-reset)
-  (message-box-hide)
-  (level-reset))
 
 ;; ------------------------------
 ;; Helpers
@@ -238,20 +199,15 @@
 
 (defn generate-food
   []
-  (let [{:keys [:snake/food :snake/food-color]} @states
-        {:keys [:max-x :max-y]} canvas]
-    (when (nil? food)
-      (loop [rand-x (rand-int max-x)
-             rand-y (rand-int max-y)]
-        (let [food [rand-x rand-y]]
-          (if-not (or
-                   (snake-collision? food)
-                   (wall-collision? food))
-            (do
-              (swap! states assoc-in [:snake/food] food)
-              (draw-circle food food-color)
-              food)
-            (recur (rand-int max-x) (rand-int max-y))))))))
+  (let [{:keys [:max-x :max-y]} canvas]
+    (loop [rand-x (rand-int max-x)
+           rand-y (rand-int max-y)]
+      (let [food [rand-x rand-y]]
+        (if-not (or
+                 (snake-collision? food)
+                 (wall-collision? food))
+          food
+          (recur (rand-int max-x) (rand-int max-y)))))))
 
 (defn snake-dead?
   [snake-head]
@@ -260,19 +216,38 @@
    (out-of-boundary? snake-head)
    (wall-collision? snake-head)))
 
-(defn add-points
-  [points]
-  (swap! states update-in [:game/score] + points))
+(defn canvas-reset
+  []
+  (let [{:keys [:background-color :ctx :width :height]} canvas]
+    (aset ctx "fillStyle" background-color)
+    (.fillRect ctx
+               0
+               0
+               width
+               height)))
 
-; TODO to improve that - might use a watch?
-(defn next-level
-  [score]
-  (let [{:keys [:game/level]} @states]
-    (when (>= score (* level next-level-score))
-      (swap! states update-in [:game/level] inc)
-      (swap! states assoc-in [:game/pause] true)
-      (level-reset)
-      (draw-text (:game/level @states) hud-level-element))))
+(defn level-reset
+  []
+  (canvas-reset)
+  (let [food (generate-food)
+        {:keys [:game/level]} @states]
+    (swap! states merge snake-defaults)
+    (swap! states assoc-in [:snake/food] food)
+    (draw-circle food food-color)
+    (draw-wall-level level)
+    (message-box-show (str "Level " level))))
+
+(defn game-reset
+  []
+  (swap! states merge defaults)
+  (update-text! (:game/level @states) hud-level-element)
+  (message-box-hide)
+  (level-reset))
+
+(defn next-level?
+  []
+  (let [{:keys [:game/score :game/level]} @states]
+    (>= score (* level next-level-score))))
 
 (defn game-loop
   []
@@ -284,11 +259,20 @@
                 :snake/direction-queue]} @states
         head (axis-add (first body) direction)
         tail (last body)]
-    (draw-text score hud-score-element)
-    (generate-food)
+    (update-text! score hud-score-element)
+    (release-key-lock!)
+
+    (when (next-level?)
+      (swap! states update-in [:game/level] inc)
+      (swap! states assoc-in [:game/pause] true)
+      (swap! states merge snake-defaults)
+      (update-text! (:game/level @states) hud-level-element)
+      (level-reset))
+
     (when (snake-dead? head)
       (message-box-show "You're DEAD!!!")
       (swap! states assoc-in [:snake/alive] false))
+
     (when (and (:snake/alive @states) (not (:game/pause @states)))
       (let [next-snake-direction (first direction-queue)]
         (when-not (or (empty? direction-queue) (opposite-direction? next-snake-direction direction))
@@ -296,17 +280,16 @@
                  :snake/direction next-snake-direction
                  :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
       (draw-rect head body-color)
-      (release-key-lock!)
       (if (eat-food? head)
-        (do
-          (swap! states assoc
-                 :snake/food nil
-                 :snake/body (conj body head))
-          (add-points food-points))
+        (let [food (generate-food)]
+          (do
+            (swap! states assoc-in [:snake/body] (conj body head))
+            (swap! states update-in [:game/score] + food-points)
+            (swap! states assoc-in [:snake/food] food)
+            (draw-circle food food-color)))
         (do
           (draw-rect tail (:background-color canvas))
           (swap! states assoc-in [:snake/body] (drop-last (conj body head)))))
-      (next-level score)
       (js/window.setTimeout (fn [] (game-loop)) speed))))
 
 (defn on-retry
