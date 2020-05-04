@@ -8,7 +8,9 @@
 
 (enable-console-print!)
 
+; TODO - Bring back as much changing state in game loop and see what to do with them
 ; TODO - Implement watcher for draw-level / points?
+; TODO - See how to use core.async to pass new data from handlers and reduce states
 
 ;; ------------------------------
 ;; States
@@ -32,12 +34,11 @@
 (def next-level-score 10)
 (def food-points 10)
 (def food-color "#949494")
+(def snake-color "#d0d0d0")
+(def game-speed 150)
 
 (def states
-  (atom {:game/speed 150
-         :game/key-lock false
-
-         :snake/body-color "#d0d0d0"
+  (atom {:game/key-lock false
          :snake/food nil; when `nil`, regenerate it
          :wall/color "black"}))
 
@@ -209,7 +210,7 @@
           food
           (recur (rand-int max-x) (rand-int max-y)))))))
 
-(defn snake-dead?
+(defn lose?
   [snake-head]
   (or
    (snake-collision? snake-head)
@@ -251,10 +252,8 @@
 
 (defn game-loop
   []
-  (let [{:keys [:game/speed
-                :game/score
+  (let [{:keys [:game/score
                 :snake/body
-                :snake/body-color
                 :snake/direction
                 :snake/direction-queue]} @states
         head (axis-add (first body) direction)
@@ -269,9 +268,10 @@
       (update-text! (:game/level @states) hud-level-element)
       (level-reset))
 
-    (when (snake-dead? head)
+    (when (lose? head)
       (message-box-show "You're DEAD!!!")
-      (swap! states assoc-in [:snake/alive] false))
+      (swap! states assoc-in [:snake/alive] false)
+      (game-reset))
 
     (when (and (:snake/alive @states) (not (:game/pause @states)))
       (let [next-snake-direction (first direction-queue)]
@@ -279,7 +279,7 @@
           (swap! states assoc
                  :snake/direction next-snake-direction
                  :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
-      (draw-rect head body-color)
+      (draw-rect head snake-color)
       (if (eat-food? head)
         (let [food (generate-food)]
           (do
@@ -290,16 +290,14 @@
         (do
           (draw-rect tail (:background-color canvas))
           (swap! states assoc-in [:snake/body] (drop-last (conj body head)))))
-      (js/window.setTimeout (fn [] (game-loop)) speed))))
+      (js/window.setTimeout (fn [] (game-loop)) game-speed))))
 
 (defn on-retry
   [event]
-  (cond
-    (= false (:snake/alive @states)) (game-reset)
-    (= true (:game/pause @states)) (do
-                                     (message-box-hide)
-                                     (swap! states assoc-in [:game/pause] false)
-                                     (game-loop))))
+  (do
+    (message-box-hide)
+    (swap! states assoc-in [:game/pause] false)
+    (game-loop)))
 
 (defn on-keydown
   [event]
