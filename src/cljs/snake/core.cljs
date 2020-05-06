@@ -35,7 +35,7 @@
 (def food-points 10)
 (def food-color "#949494")
 (def snake-color "#d0d0d0")
-(def game-speed 150)
+(def game-speed 200)
 
 (def states
   (atom {:game/key-lock false
@@ -242,7 +242,7 @@
   []
   (swap! states merge defaults)
   (update-text! (:game/level @states) hud-level-element)
-  (message-box-hide)
+  ; (message-box-hide)
   (level-reset))
 
 (defn next-level?
@@ -251,7 +251,7 @@
     (>= score (* level next-level-score))))
 
 (defn game-loop
-  []
+  [tframe last-time]
   (let [{:keys [:game/score
                 :snake/body
                 :snake/direction
@@ -260,7 +260,6 @@
         tail (last body)]
     (update-text! score hud-score-element)
     (release-key-lock!)
-
     (when (next-level?)
       (swap! states update-in [:game/level] inc)
       (swap! states assoc-in [:game/pause] true)
@@ -270,34 +269,36 @@
 
     (when (lose? head)
       (message-box-show "You're DEAD!!!")
-      (swap! states assoc-in [:snake/alive] false)
       (game-reset))
 
-    (when (and (:snake/alive @states) (not (:game/pause @states)))
-      (let [next-snake-direction (first direction-queue)]
-        (when-not (or (empty? direction-queue) (opposite-direction? next-snake-direction direction))
-          (swap! states assoc
-                 :snake/direction next-snake-direction
-                 :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
-      (draw-rect head snake-color)
-      (if (eat-food? head)
-        (let [food (generate-food)]
+    (when-not (:game/pause @states))
+    (if (>= tframe (+ last-time game-speed))
+      (do
+        (let [next-snake-direction (first direction-queue)]
+          (when-not (or (empty? direction-queue) (opposite-direction? next-snake-direction direction))
+            (swap! states assoc
+                   :snake/direction next-snake-direction
+                   :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
+
+        (draw-rect head snake-color)
+        (if (eat-food? head)
+          (let [food (generate-food)]
+            (do
+              (swap! states assoc-in [:snake/body] (conj body head))
+              (swap! states update-in [:game/score] + food-points)
+              (swap! states assoc-in [:snake/food] food)
+              (draw-circle food food-color)))
           (do
-            (swap! states assoc-in [:snake/body] (conj body head))
-            (swap! states update-in [:game/score] + food-points)
-            (swap! states assoc-in [:snake/food] food)
-            (draw-circle food food-color)))
-        (do
-          (draw-rect tail (:background-color canvas))
-          (swap! states assoc-in [:snake/body] (drop-last (conj body head)))))
-      (js/window.setTimeout (fn [] (game-loop)) game-speed))))
+            (draw-rect tail (:background-color canvas))
+            (swap! states assoc-in [:snake/body] (drop-last (conj body head)))))
+        (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))
+      (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe last-time))))))
 
 (defn on-retry
   [event]
   (do
     (message-box-hide)
-    (swap! states assoc-in [:game/pause] false)
-    (game-loop)))
+    (swap! states assoc-in [:game/pause] false)))
 
 (defn on-keydown
   [event]
@@ -315,10 +316,10 @@
   []
   (resize-canvas)
   (canvas-reset)
-  (game-reset)
   (events/removeAll js/document)
   (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
   (events/listen message-box-element goog.events.EventType.CLICK on-retry)
-  (game-loop))
+  (game-reset)
+  (game-loop (js/window.performance.now) 0))
 
 (init)
