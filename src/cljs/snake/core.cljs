@@ -102,14 +102,24 @@
 (defn get-walls
   [level]
   (get-in levels [(keyword (str "level-" level)) :walls]))
-(get-walls 1)
 
 (defn draw-wall-level
   [level]
   (draw-wall (get-walls level) (:wall/color @states)))
 
+(defn canvas-reset
+  []
+  (let [{:keys [:background-color :ctx :width :height]} canvas]
+    (aset ctx "fillStyle" background-color)
+    (.fillRect ctx
+               0
+               0
+               width
+               height)))
+
 ;; ------------------------------
-;; Reset functions
+;; Message box functions
+
 
 (defn message-box-hide
   []
@@ -144,9 +154,8 @@
 ;; Collision
 
 (defn snake-collision?
-  [[x y]]
-  (let [{:keys [:snake/body]} @states]
-    (some #(axis-equal? [x y] %) body)))
+  [[x y] body]
+  (some #(axis-equal? [x y] %) body))
 
 (defn wall-collision?
   [coord]
@@ -166,20 +175,6 @@
         goog.events.KeyCodes.L [1 0]} ;right
        keycode nil))
 
-(defn release-key-lock!
-  "Fix a bug when pressing keys simultaneously"
-  []
-  (swap! states assoc-in [:game/key-lock] false))
-
-(defn set-key-lock!
-  "Fix a bug when pressing keys simultaneously"
-  []
-  (swap! states assoc-in [:game/key-lock] true))
-
-(defn key-lock?
-  []
-  (:game/key-lock @states))
-
 ;; ------------------------------
 ;; Game Mechanics
 
@@ -198,41 +193,36 @@
   (let [{:keys [:snake/food]} @states]
     (= [x y] food)))
 
-(defn generate-food
+(defn next-level?
   []
+  (let [{:keys [:game/score :game/level]} @states]
+    (>= score (* level next-level-score))))
+
+(defn lose?
+  [snake-head snake-body]
+  (or
+   (snake-collision? snake-head snake-body)
+   (out-of-boundary? snake-head)
+   (wall-collision? snake-head)))
+
+(defn generate-food
+  [body]
   (let [{:keys [:max-x :max-y]} canvas]
-    (loop [rand-x (rand-int max-x)
-           rand-y (rand-int max-y)]
+    (loop [rand-x (rand-int (:max-x canvas))
+           rand-y (rand-int (:max-y canvas))]
       (let [food [rand-x rand-y]]
         (if-not (or
-                 (snake-collision? food)
+                 (snake-collision? food body)
                  (wall-collision? food))
           food
           (recur (rand-int max-x) (rand-int max-y)))))))
 
-(defn lose?
-  [snake-head]
-  (or
-   (snake-collision? snake-head)
-   (out-of-boundary? snake-head)
-   (wall-collision? snake-head)))
-
-(defn canvas-reset
-  []
-  (let [{:keys [:background-color :ctx :width :height]} canvas]
-    (aset ctx "fillStyle" background-color)
-    (.fillRect ctx
-               0
-               0
-               width
-               height)))
-
 (defn level-reset
   []
   (canvas-reset)
-  (let [food (generate-food)
+  (swap! states merge snake-defaults)
+  (let [food (generate-food (:body snake-defaults))
         {:keys [:game/level]} @states]
-    (swap! states merge snake-defaults)
     (swap! states assoc-in [:snake/food] food)
     (draw-circle food food-color)
     (draw-wall-level level)
@@ -242,56 +232,49 @@
   []
   (swap! states merge defaults)
   (update-text! (:game/level @states) hud-level-element)
-  ; (message-box-hide)
   (level-reset))
-
-(defn next-level?
-  []
-  (let [{:keys [:game/score :game/level]} @states]
-    (>= score (* level next-level-score))))
 
 (defn game-loop
   [tframe last-time]
-  (let [{:keys [:game/score
-                :snake/body
-                :snake/direction
-                :snake/direction-queue]} @states
-        head (axis-add (first body) direction)
-        tail (last body)]
-    (if (>= tframe (+ last-time game-speed))
-      (do (update-text! score hud-score-element)
-          (release-key-lock!)
-          (when (next-level?)
-            (swap! states update-in [:game/level] inc)
-            (swap! states assoc-in [:game/pause] true)
-            (swap! states merge snake-defaults)
-            (update-text! (:game/level @states) hud-level-element)
-            (level-reset))
+  (if (< tframe (+ last-time game-speed))
+    (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe last-time)))
+    (let [{:keys [:game/score
+                  :snake/body
+                  :snake/direction
+                  :snake/direction-queue]} @states
+          head (axis-add (first body) direction)
+          tail (last body)]
+      (update-text! score hud-score-element)
+      (swap! states assoc-in [:game/key-lock] false)
 
-          (when (lose? head)
-            (message-box-show "You're DEAD!!!")
-            (game-reset))
+      (when (next-level?)
+        (swap! states update-in [:game/level] inc)
+        (swap! states assoc-in [:game/pause] true)
+        (swap! states merge snake-defaults)
+        (update-text! (:game/level @states) hud-level-element)
+        (level-reset))
 
-          (when (and (not (:game/pause @states)))
-            (let [next-snake-direction (first direction-queue)]
-              (when-not (or (empty? direction-queue) (opposite-direction? next-snake-direction direction))
-                (swap! states assoc
-                       :snake/direction next-snake-direction
-                       :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
-            (draw-rect head snake-color)
-            (if (eat-food? head)
-              (let [food (generate-food)]
-                (do
-                  (swap! states assoc-in [:snake/body] (conj body head))
-                  (swap! states update-in [:game/score] + food-points)
-                  (swap! states assoc-in [:snake/food] food)
-                  (draw-circle food food-color)))
-              (do
-                (draw-rect tail (:background-color canvas))
-                (when (>= (js/window.performance.now) tframe)
-                  (swap! states assoc-in [:snake/body] (drop-last (conj body head)))))))
-          (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))
-      (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe last-time))))))
+      (when (lose? head body)
+        (game-reset))
+
+      (when (and (not (:game/pause @states)))
+        (let [next-snake-direction (first direction-queue)]
+          (when-not (or (empty? direction-queue) (opposite-direction? next-snake-direction direction))
+            (swap! states assoc
+                   :snake/direction next-snake-direction
+                   :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
+        (draw-rect head snake-color)
+        (if (eat-food? head)
+          (let [food (generate-food body)]
+            (do
+              (swap! states assoc-in [:snake/body] (conj body head))
+              (swap! states update-in [:game/score] + food-points)
+              (swap! states assoc-in [:snake/food] food)
+              (draw-circle food food-color)))
+          (do
+            (draw-rect tail (:background-color canvas))
+            (swap! states assoc-in [:snake/body] (drop-last (conj body head))))))
+      (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))))
 
 (defn on-retry
   [event]
@@ -305,11 +288,11 @@
     (on-retry event))
   (let [{:keys [:snake/direction]} @states
         new-direction (keycode->direction (.-keyCode event))]
-    (if (key-lock?)
+    (if (:game/key-lock @states)
       (swap! states assoc-in [:snake/direction-queue] (conj (:game/key-queue @states) new-direction))
       (when (and new-direction (not (opposite-direction? direction new-direction)))
         (swap! states assoc-in [:snake/direction] new-direction)
-        (set-key-lock!)))))
+        (swap! states assoc-in [:game/key-lock] true)))))
 
 (defn init
   []
