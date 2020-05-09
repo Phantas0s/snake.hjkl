@@ -10,14 +10,25 @@
                  [adzerk/boot-cljs-repl   "0.4.0"] ;; latest release
                  [cider/piggieback        "0.3.9"]
                  [weasel                  "0.7.0"]
-                 [nrepl                   "0.4.5"]])
+                 [nrepl                   "0.4.5"]
+                 [crisptrutski/boot-cljs-test "0.3.5-SNAPSHOT"]])
 
 (require '[adzerk.boot-cljs :refer [cljs]] ;; task cljs
          '[pandeiro.boot-http :refer [serve]] ;; make serve task visible
          '[adzerk.boot-reload :refer [reload]]
-         '[adzerk.boot-cljs-repl :refer [cljs-repl start-repl]]) ;; make it visible
+         '[adzerk.boot-cljs-repl :refer [cljs-repl start-repl]]
+         '[crisptrutski.boot-cljs-test :refer [test-cljs]])
+
 
 ;; define dev task as composition of subtasks
+
+
+(deftask testing [] (merge-env! :source-paths #{"test"}) identity)
+
+(deftask run-tests []
+  (test-cljs
+   :js-env :firefox))
+
 (deftask dev
   "Launch Immediate Feedback Development Environment"
   []

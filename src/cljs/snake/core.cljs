@@ -8,18 +8,15 @@
 
 (enable-console-print!)
 
-; TODO - Bring back as much changing state in game loop and see what to do with them
 ; TODO - Implement watcher for draw-level / points?
-; TODO - See how to use core.async to pass new data from handlers and reduce states
+; TODO - See how to use core.async to use on event handlers
 
 ;; ------------------------------
-;; States
-
-; TODO refactor all this messy states. Make immutable what we can.
+;; Constants
 
 (def canvas {:width 640
              :height 640
-             :background-color "#1c1c1c"
+             :background-color "#303030"
              :element (dom/getElement "canvas")
              :ctx (.getContext (dom/getElement "canvas") "2d")
              :unit/width 32 ;(/ (:width canvas) 20)
@@ -31,26 +28,31 @@
 (def hud-score-element (.getElementById js/document "score"))
 (def hud-level-element (.getElementById js/document "level"))
 
-(def next-level-score 10)
+(def next-level-score 100)
 (def food-points 10)
-(def food-color "#949494")
+(def food-color "#ffffff")
 (def snake-color "#d0d0d0")
+(def wall-color "#000000")
 (def game-speed 150)
 
+;; ------------------------------
+;; Mutable states
+
 (def states
-  (atom {:game/key-lock false
-         :snake/food nil; when `nil`, regenerate it
-         :wall/color "black"}))
+  (atom {:snake/food nil}))
 
 (def snake-defaults {:snake/body '([5 9] [4 9] [3 9])
                      :snake/direction [1 0]
-                     :snake/food nil
-                     :snake/alive true
-                     :snake/direction-queue []})
+                     :snake/direction-queue []
+                     :snake/food nil})
 
-(def defaults (merge {:game/level 1
+(def defaults (merge {:game/key-lock false
+                      :game/level 1
                       :game/pause true
                       :game/score 0} snake-defaults))
+
+;; ------------------------------
+;; To debug
 
 (defn print-states
   "Print current game states on console.(For debugging purpose)"
@@ -62,7 +64,7 @@
 ;; ------------------------------
 ;; Draw functions
 
-(defn draw-rect
+(defn draw-rect!
   "Draw a rect on canvas"
   [[x y] color]
   (let [{:keys [:ctx :unit/width :unit/height]} canvas]
@@ -73,7 +75,7 @@
                width
                height)))
 
-(defn draw-circle
+(defn draw-circle!
   "Draw a circle on canvas"
   [[x y] color]
   (let [{:keys [:ctx :unit/width :unit/height]} canvas]
@@ -93,11 +95,11 @@
   [text element]
   (set! (.-innerHTML element) text))
 
-(defn draw-wall
+(defn draw-wall!
   [wall-units color]
   (when-not (nil? wall-units)
     (doseq [w wall-units]
-      (draw-rect w color))))
+      (draw-rect! w color))))
 
 (defn get-walls
   [level]
@@ -105,7 +107,7 @@
 
 (defn draw-wall-level
   [level]
-  (draw-wall (get-walls level) (:wall/color @states)))
+  (draw-wall! (get-walls level) wall-color))
 
 (defn canvas-reset
   []
@@ -217,24 +219,24 @@
           food
           (recur (rand-int max-x) (rand-int max-y)))))))
 
-(defn level-reset
+(defn level-reset!
   []
   (canvas-reset)
-  (swap! states merge snake-defaults)
   (let [food (generate-food (:body snake-defaults))
         {:keys [:game/level]} @states]
     (swap! states assoc-in [:snake/food] food)
-    (draw-circle food food-color)
+    (draw-circle! food food-color)
     (draw-wall-level level)
     (message-box-show (str "Level " level))))
 
-(defn game-reset
+(defn game-reset!
   []
   (swap! states merge defaults)
   (update-text! (:game/level @states) hud-level-element)
-  (level-reset))
+  (level-reset!))
 
 (defn game-loop
+  "Main game loop"
   [tframe last-time]
   (if (< tframe (+ last-time game-speed))
     (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe last-time)))
@@ -252,37 +254,43 @@
         (swap! states assoc-in [:game/pause] true)
         (swap! states merge snake-defaults)
         (update-text! (:game/level @states) hud-level-element)
-        (level-reset))
+        (level-reset!))
 
       (when (lose? head body)
-        (game-reset))
+        (game-reset!))
 
-      (when (and (not (:game/pause @states)))
+      (when-not (:game/pause @states)
         (let [next-snake-direction (first direction-queue)]
           (when-not (or (empty? direction-queue) (opposite-direction? next-snake-direction direction))
             (swap! states assoc
                    :snake/direction next-snake-direction
                    :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
-        (draw-rect head snake-color)
+        (draw-rect! head snake-color)
         (if (eat-food? head)
           (let [food (generate-food body)]
             (do
-              (swap! states assoc-in [:snake/body] (conj body head))
               (swap! states update-in [:game/score] + food-points)
-              (swap! states assoc-in [:snake/food] food)
-              (draw-circle food food-color)))
+              (swap! states assoc
+                     :snake/body (conj body head)
+                     :snake/food food)
+              (draw-circle! food food-color)))
           (do
-            (draw-rect tail (:background-color canvas))
-            (swap! states assoc-in [:snake/body] (drop-last (conj body head))))))
+            (swap! states assoc-in [:snake/body] (drop-last (conj body head)))
+            (draw-rect! tail (:background-color canvas)))))
       (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))))
 
+;; ------------------------------
+;; Event handlers
+
 (defn on-retry
+  "Executed when close a message-box"
   [event]
   (do
     (message-box-hide)
     (swap! states assoc-in [:game/pause] false)))
 
 (defn on-keydown
+  "Executed when HJKL is pressed on keyboard"
   [event]
   (when (= (.-keyCode event) goog.events.KeyCodes.ENTER)
     (on-retry event))
@@ -291,8 +299,9 @@
     (if (:game/key-lock @states)
       (swap! states assoc-in [:snake/direction-queue] (conj (:game/key-queue @states) new-direction))
       (when (and new-direction (not (opposite-direction? direction new-direction)))
-        (swap! states assoc-in [:snake/direction] new-direction)
-        (swap! states assoc-in [:game/key-lock] true)))))
+        (swap! states assoc
+               :snake/direction new-direction
+               :game/key-lock true)))))
 
 (defn init
   []
@@ -301,7 +310,7 @@
   (events/removeAll js/document)
   (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
   (events/listen message-box-element goog.events.EventType.CLICK on-retry)
-  (game-reset)
+  (game-reset!)
   (game-loop (js/window.performance.now) 0))
 
 (init)
