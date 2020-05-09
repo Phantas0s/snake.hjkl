@@ -23,11 +23,13 @@
 ;; define dev task as composition of subtasks
 
 
-(deftask testing [] (merge-env! :source-paths #{"test"}) identity)
+(deftask testing [] (merge-env! :source-paths #{"test/cljs"}) identity)
 
 (deftask run-tests []
+  (testing)
   (test-cljs
-   :js-env :firefox))
+   :js-env :phantom
+   :optimizations :simple))
 
 (deftask dev
   "Launch Immediate Feedback Development Environment"
