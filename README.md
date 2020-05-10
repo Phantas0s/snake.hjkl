@@ -4,6 +4,8 @@ This is a simple snake game where you *must* use the keys `h`, `j`, `k` and `l` 
 
 [You can play it right now if you click here](https://matthieucneude.com/snake/).
 
+This game is based on a true story.
+
 ## Why using the keys h,j,k and l?
 
 In many CLI and specifically Vim, you can use the keys `hjkl` to move around, instead of using the arrow keys.
@@ -17,7 +19,7 @@ The controls are:
 
 Using `hjkl` won't oblige you to move your hands to reach the arrow keys. It might sound silly, but it's really nice when you're used to it.
 
-To teach people to do so, I developed this Snake game when you must use `hjkl` to move your snake.
+To teach people to do so, I developed this Snake game where you must use `hjkl` to move the snake.
 
 I speak about all of that in more details in my blog article [Is Vim Really Not For You? A Beginner Guide](https://thevaluable.dev/vim-for-beginnners/).
 
