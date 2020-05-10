@@ -38,8 +38,8 @@
 ;; ------------------------------
 ;; Mutable states
 
-(def states
-  (atom {:snake/food nil}))
+(defonce states
+  (atom {})) ; states are merged with defaults at game-reset!
 
 (def snake-defaults {:snake/body '([5 9] [4 9] [3 9])
                      :snake/direction [1 0]
@@ -160,10 +160,10 @@
   (some #(axis-equal? [x y] %) body))
 
 (defn wall-collision?
-  [coord]
+  [[x y]]
   (let [{:keys [:game/level]} @states
         walls (get-walls level)]
-    (some #(= coord %) walls)))
+    (some #(= [x y] %) walls)))
 
 ;; ------------------------------
 ;; Keys Mechanics
@@ -249,13 +249,6 @@
       (update-text! score hud-score-element)
       (swap! states assoc-in [:game/key-lock] false)
 
-      (when (next-level?)
-        (swap! states update-in [:game/level] inc)
-        (swap! states assoc-in [:game/pause] true)
-        (swap! states merge snake-defaults)
-        (update-text! (:game/level @states) hud-level-element)
-        (level-reset!))
-
       (when (lose? head body)
         (game-reset!))
 
@@ -277,6 +270,14 @@
           (do
             (swap! states assoc-in [:snake/body] (drop-last (conj body head)))
             (draw-rect! tail (:background-color canvas)))))
+
+      (when (next-level?)
+        (swap! states update-in [:game/level] inc)
+        (swap! states assoc-in [:game/pause] true)
+        (swap! states merge snake-defaults)
+        (update-text! (:game/level @states) hud-level-element)
+        (level-reset!))
+
       (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))))
 
 ;; ------------------------------
@@ -303,11 +304,14 @@
                :snake/direction new-direction
                :game/key-lock true)))))
 
+;; ------------------------------
+;; Initialization
+
 (defn init
+  "Reset the states, create the events and run the game"
   []
   (resize-canvas)
   (canvas-reset)
-  (events/removeAll js/document)
   (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
   (events/listen message-box-element goog.events.EventType.CLICK on-retry)
   (game-reset!)
