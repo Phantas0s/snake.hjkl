@@ -3,7 +3,7 @@
             [goog.events :as events]
             [goog.events.KeyCodes]
             [goog.events.EventType]
-            [snake.levels :refer [levels]]
+            [snake.levels :refer [get-walls]]
             [clojure.pprint :refer [pprint]]))
 
 (enable-console-print!)
@@ -28,6 +28,7 @@
                :element (dom/getElement "canvas")
                :ctx (.getContext (dom/getElement "canvas") "2d")}))
 
+(def message-element (.getElementById js/document "message"))
 (def message-box-element (.getElementById js/document "message-box"))
 (def hud-score-element (.getElementById js/document "score"))
 (def hud-level-element (.getElementById js/document "level"))
@@ -70,7 +71,7 @@
 
 (defn draw-rect!
   "Draw a rect on canvas"
-  [[x y] color]
+  [canvas [x y] color]
   (let [{:keys [:ctx :unit/width :unit/height]} canvas]
     (aset ctx "fillStyle" color)
     (.fillRect ctx
@@ -81,7 +82,7 @@
 
 (defn draw-circle!
   "Draw a circle on canvas"
-  [[x y] color]
+  [canvas [x y] color]
   (let [{:keys [:ctx :unit/width :unit/height]} canvas]
     (aset ctx "fillStyle" color)
     (.beginPath ctx)
@@ -96,22 +97,13 @@
 
 (defn update-text!
   "Draw some text"
-  [text element]
+  [element text]
   (set! (.-innerHTML element) text))
 
-(defn draw-wall!
-  [wall-units color]
-  (when-not (nil? wall-units)
-    (doseq [w wall-units]
-      (draw-rect! w color))))
-
-(defn get-walls
-  [level]
-  (get-in levels [(keyword (str "level-" level)) :walls]))
-
 (defn draw-wall-level!
-  [level]
-  (draw-wall! (get-walls level) wall-color))
+  [level wall-color]
+  (doseq [w (get-walls level)]
+    (draw-rect! canvas w wall-color)))
 
 (defn canvas-reset!
   []
@@ -136,7 +128,7 @@
    (set! (.-display (.-style message-box-element)) "block"))
   ([text]
    (set! (.-display (.-style message-box-element)) "block")
-   (update-text! text (.getElementById js/document "message"))))
+   (update-text! message-element text)))
 
 (defn resize-canvas!
   "Resize the canvas according to the states"
@@ -227,9 +219,9 @@
   [level]
   (canvas-reset!)
   (let [food (generate-food! (:body snake-defaults))]
-    (draw-circle! food food-color)
+    (draw-circle! canvas food food-color)
     (swap! states assoc-in [:snake/food] food)
-    (draw-wall-level! level)
+    (draw-wall-level! level wall-color)
     (message-box-show! (str "Level " level))))
 
 (defn game-reset!
@@ -261,17 +253,17 @@
             (swap! states assoc
                    :snake/direction next-snake-direction
                    :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
-        (draw-rect! head snake-color)
+        (draw-rect! canvas head snake-color)
         (if (eat-food? head)
           (let [food (generate-food! body)]
             (swap! states assoc
                    :game/score (+ score food-points)
                    :snake/body (conj body head)
                    :snake/food food)
-            (draw-circle! food food-color))
+            (draw-circle! canvas food food-color))
           (do
             (swap! states assoc-in [:snake/body] (drop-last (conj body head)))
-            (draw-rect! tail (:background-color canvas)))))
+            (draw-rect! canvas tail (:background-color canvas)))))
 
       (when (next-level?)
         (let [new-level (inc (:game/level @states))]
