@@ -14,15 +14,19 @@
 ;; ------------------------------
 ;; Constants
 
-(def canvas {:width 640
-             :height 640
-             :background-color "#303030"
-             :element (dom/getElement "canvas")
-             :ctx (.getContext (dom/getElement "canvas") "2d")
-             :unit/width 32 ;(/ (:width canvas) 20)
-             :unit/height 32 ;(/ (:height canvas) 20)
-             :max-x 20 ;(/ (:canvas-width canvas) (:unit/width canvas))
-             :max-y 20}) ;(/ (:canvas-height canvas) (:unit/height canvas))})
+(def canvas (let [width 640
+                  height 640
+                  unit-width 32
+                  unit-height 32]
+              {:width width
+               :height height
+               :unit/width unit-width
+               :unit/height unit-height
+               :max-x (/ width unit-width)
+               :max-y (/ height unit-height)
+               :background-color "#303030"
+               :element (dom/getElement "canvas")
+               :ctx (.getContext (dom/getElement "canvas") "2d")}))
 
 (def message-box-element (.getElementById js/document "message-box"))
 (def hud-score-element (.getElementById js/document "score"))
@@ -54,7 +58,7 @@
 ;; ------------------------------
 ;; To debug
 
-(defn print-states
+(defn print-states!
   "Print current game states on console.(For debugging purpose)"
   []
   (.log js/console "-------------------------------")
@@ -105,11 +109,11 @@
   [level]
   (get-in levels [(keyword (str "level-" level)) :walls]))
 
-(defn draw-wall-level
+(defn draw-wall-level!
   [level]
   (draw-wall! (get-walls level) wall-color))
 
-(defn canvas-reset
+(defn canvas-reset!
   []
   (let [{:keys [:background-color :ctx :width :height]} canvas]
     (aset ctx "fillStyle" background-color)
@@ -123,18 +127,18 @@
 ;; Message box functions
 
 
-(defn message-box-hide
+(defn message-box-hide!
   []
   (set! (.-display (.-style message-box-element)) "none"))
 
-(defn message-box-show
+(defn message-box-show!
   ([]
    (set! (.-display (.-style message-box-element)) "block"))
   ([text]
    (set! (.-display (.-style message-box-element)) "block")
    (update-text! text (.getElementById js/document "message"))))
 
-(defn resize-canvas
+(defn resize-canvas!
   "Resize the canvas according to the states"
   []
   (let [{:keys [:element :width :height]} canvas]
@@ -166,7 +170,7 @@
     (some #(= [x y] %) walls)))
 
 ;; ------------------------------
-;; Keys Mechanics
+;; Key Mechanics
 
 (defn keycode->direction
   "Convert JavaScript keycode to direction array"
@@ -207,7 +211,7 @@
    (out-of-boundary? snake-head)
    (wall-collision? snake-head)))
 
-(defn generate-food
+(defn generate-food!
   [body]
   (let [{:keys [:max-x :max-y]} canvas]
     (loop [rand-x (rand-int (:max-x canvas))
@@ -220,20 +224,19 @@
           (recur (rand-int max-x) (rand-int max-y)))))))
 
 (defn level-reset!
-  []
-  (canvas-reset)
-  (let [food (generate-food (:body snake-defaults))
-        {:keys [:game/level]} @states]
-    (swap! states assoc-in [:snake/food] food)
+  [level]
+  (canvas-reset!)
+  (let [food (generate-food! (:body snake-defaults))]
     (draw-circle! food food-color)
-    (draw-wall-level level)
-    (message-box-show (str "Level " level))))
+    (swap! states assoc-in [:snake/food] food)
+    (draw-wall-level! level)
+    (message-box-show! (str "Level " level))))
 
 (defn game-reset!
   []
   (swap! states merge defaults)
   (update-text! (:game/level @states) hud-level-element)
-  (level-reset!))
+  (level-reset! 1))
 
 (defn game-loop
   "Main game loop"
@@ -260,35 +263,37 @@
                    :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
         (draw-rect! head snake-color)
         (if (eat-food? head)
-          (let [food (generate-food body)]
-            (do
-              (swap! states update-in [:game/score] + food-points)
-              (swap! states assoc
-                     :snake/body (conj body head)
-                     :snake/food food)
-              (draw-circle! food food-color)))
+          (let [food (generate-food! body)]
+            (swap! states assoc
+                   :game/score (+ score food-points)
+                   :snake/body (conj body head)
+                   :snake/food food)
+            (draw-circle! food food-color))
           (do
             (swap! states assoc-in [:snake/body] (drop-last (conj body head)))
             (draw-rect! tail (:background-color canvas)))))
 
       (when (next-level?)
-        (swap! states update-in [:game/level] inc)
-        (swap! states assoc-in [:game/pause] true)
-        (swap! states merge snake-defaults)
-        (update-text! (:game/level @states) hud-level-element)
-        (level-reset!))
+        (let [new-level (inc (:game/level @states))]
+          (swap! states merge
+                 snake-defaults
+                 (assoc {}
+                        :game/level new-level
+                        :game/pause true))
+          (update-text! (:game/level @states) hud-level-element)
+          (level-reset! new-level)))
 
       (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))))
 
 ;; ------------------------------
 ;; Event handlers
 
+
 (defn on-retry
   "Executed when close a message-box"
   [event]
-  (do
-    (message-box-hide)
-    (swap! states assoc-in [:game/pause] false)))
+  (message-box-hide!)
+  (swap! states assoc-in [:game/pause] false))
 
 (defn on-keydown
   "Executed when HJKL is pressed on keyboard"
@@ -310,8 +315,8 @@
 (defn init
   "Reset the states, create the events and run the game"
   []
-  (resize-canvas)
-  (canvas-reset)
+  (resize-canvas!)
+  (canvas-reset!)
   (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
   (events/listen message-box-element goog.events.EventType.CLICK on-retry)
   (game-reset!)
