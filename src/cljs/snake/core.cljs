@@ -106,7 +106,7 @@
     (draw-rect! canvas w wall-color)))
 
 (defn canvas-reset!
-  []
+  [canvas]
   (let [{:keys [:background-color :ctx :width :height]} canvas]
     (aset ctx "fillStyle" background-color)
     (.fillRect ctx
@@ -132,7 +132,7 @@
 
 (defn resize-canvas!
   "Resize the canvas according to the states"
-  []
+  [canvas]
   (let [{:keys [:element :width :height]} canvas]
     (.setAttribute element "width" width)
     (.setAttribute element "height" height)))
@@ -216,8 +216,8 @@
           (recur (rand-int max-x) (rand-int max-y)))))))
 
 (defn level-reset!
-  [level]
-  (canvas-reset!)
+  [canvas level]
+  (canvas-reset! canvas)
   (let [food (generate-food! (:body snake-defaults))]
     (draw-circle! canvas food food-color)
     (swap! states assoc-in [:snake/food] food)
@@ -228,7 +228,7 @@
   []
   (swap! states merge defaults)
   (update-text! (:game/level @states) hud-level-element)
-  (level-reset! 1))
+  (level-reset! canvas 1))
 
 (defn game-loop
   "Main game loop"
@@ -273,7 +273,7 @@
                         :game/level new-level
                         :game/pause true))
           (update-text! (:game/level @states) hud-level-element)
-          (level-reset! new-level)))
+          (level-reset! canvas new-level)))
 
       (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))))
 
@@ -307,8 +307,8 @@
 (defn init
   "Reset the states, create the events and run the game"
   []
-  (resize-canvas!)
-  (canvas-reset!)
+  (resize-canvas! canvas)
+  (canvas-reset! canvas)
   (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
   (events/listen message-box-element goog.events.EventType.CLICK on-retry)
   (game-reset!)
