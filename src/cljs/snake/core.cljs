@@ -71,29 +71,27 @@
 
 (defn draw-rect!
   "Draw a rect on canvas"
-  [canvas [x y] color]
-  (let [{:keys [:ctx :unit/width :unit/height]} canvas]
-    (aset ctx "fillStyle" color)
-    (.fillRect ctx
-               (* x width)
-               (* y height)
-               width
-               height)))
+  [{:keys [:ctx :unit/width :unit/height]} [x y] color]
+  (aset ctx "fillStyle" color)
+  (.fillRect ctx
+             (* x width)
+             (* y height)
+             width
+             height))
 
 (defn draw-circle!
   "Draw a circle on canvas"
-  [canvas [x y] color]
-  (let [{:keys [:ctx :unit/width :unit/height]} canvas]
-    (aset ctx "fillStyle" color)
-    (.beginPath ctx)
-    (.arc ctx
-          (+ (/ width 2) (* x width))
-          (+ (/ height 2) (* y height))
-          (/ height 2)
-          0
-          (* 2 Math/PI)
-          false)
-    (.fill ctx)))
+  [{:keys [:ctx :unit/width :unit/height]} [x y] color]
+  (aset ctx "fillStyle" color)
+  (.beginPath ctx)
+  (.arc ctx
+        (+ (/ width 2) (* x width))
+        (+ (/ height 2) (* y height))
+        (/ height 2)
+        0
+        (* 2 Math/PI)
+        false)
+  (.fill ctx))
 
 (defn update-text!
   "Draw some text"
@@ -106,21 +104,19 @@
     (draw-rect! canvas w wall-color)))
 
 (defn canvas-reset!
-  [canvas]
-  (let [{:keys [:background-color :ctx :width :height]} canvas]
-    (aset ctx "fillStyle" background-color)
-    (.fillRect ctx
-               0
-               0
-               width
-               height)))
+  [{:keys [:background-color :ctx :width :height]}]
+  (aset ctx "fillStyle" background-color)
+  (.fillRect ctx
+             0
+             0
+             width
+             height))
 
 (defn canvas-resize!
   "Resize the canvas according to the states"
-  [canvas]
-  (let [{:keys [:element :width :height]} canvas]
-    (.setAttribute element "width" width)
-    (.setAttribute element "height" height)))
+  [{:keys [:element :width :height]}]
+  (.setAttribute element "width" width)
+  (.setAttribute element "height" height))
 
 
 ;; ------------------------------
@@ -205,18 +201,19 @@
    (wall-collision? snake-head)))
 
 (defn random-coords
-  [canvas]
+  [max-x max-y]
   (map vector
-       (repeatedly #(rand-int (:max-x canvas)))
-       (repeatedly #(rand-int (:max-y canvas)))))
+       (repeatedly #(rand-int max-x))
+       (repeatedly #(rand-int max-y))))
 
-(defn generate-food! [canvas body]
+(defn generate-food!
+  [{:keys [:max-x :max-y]} body]
   (some #(when-not (or (snake-collision? % body)
                        (wall-collision? %)) %)
-        (random-coords canvas)))
+        (random-coords max-x max-y)))
 
 (defn level-reset!
-  [canvas level]
+  [canvas states level]
   (canvas-reset! canvas)
   (let [food (generate-food! canvas (:body snake-defaults))]
     (draw-circle! canvas food food-color)
@@ -225,10 +222,11 @@
     (message-box-show! (str "Level " level))))
 
 (defn game-reset!
-  []
+  [states]
   (swap! states merge defaults)
-  (update-text!  hud-level-element (:game/level @states))
-  (level-reset! canvas 1))
+  (update-text! hud-score-element (:game/score @states))
+  (update-text! hud-level-element (:game/level @states))
+  (level-reset! canvas states 1))
 
 (defn game-loop
   "Main game loop"
@@ -244,7 +242,7 @@
       (swap! states assoc-in [:game/key-lock] false)
 
       (when (lose? head body)
-        (game-reset!))
+        (game-reset! states))
 
       (when-not (:game/pause @states)
         (let [next-snake-direction (first direction-queue)]
@@ -275,7 +273,7 @@
                         :game/level new-level
                         :game/pause true))
           (update-text! hud-level-element (:game/level @states))
-          (level-reset! canvas new-level)))
+          (level-reset! canvas states new-level)))
 
       (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))))
 
@@ -317,7 +315,7 @@
   (canvas-reset! canvas)
   (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
   (events/listen message-box-element goog.events.EventType.CLICK on-retry)
-  (game-reset!)
+  (game-reset! states)
   (game-loop (js/window.performance.now) 0))
 
 (init)
