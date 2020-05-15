@@ -164,15 +164,15 @@
 
 (defn keycodes
   [k]
-  (get (js->clj goog.events.KeyCodes) k))
+  (get (js->clj goog.events.KeyCodes :keywordize-keys true) k))
 
 (defn keycode->direction
   "Convert JavaScript keycode to direction array"
   [keycode]
-  (get {(keycodes "K") [0 -1] ;up
-        (keycodes "J") [0 1] ;down
-        (keycodes "H") [-1 0] ;left
-        (keycodes "L") [1 0]} ;right
+  (get {(keycodes :K) [0 -1] ;up
+        (keycodes :J) [0 1] ;down
+        (keycodes :H) [-1 0] ;left
+        (keycodes :L) [1 0]} ;right
        keycode nil))
 
 ;; ------------------------------
