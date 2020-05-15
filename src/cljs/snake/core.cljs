@@ -179,9 +179,8 @@
 
 (defn out-of-boundary?
   "Check if axis is exceed the game board boundary."
-  [[x y]]
-  (let [{:keys [:max-x :max-y]} canvas]
-    (or (>= x max-x) (< x 0) (>= y max-y) (< y 0))))
+  [max-x max-y [x y]]
+  (or (>= x max-x) (< x 0) (>= y max-y) (< y 0)))
 
 (defn eat-food?
   [[x y]]
@@ -194,10 +193,10 @@
     (>= score (* level next-level-score))))
 
 (defn lose?
-  [snake-head snake-body]
+  [{:keys [:max-x :max-y]} snake-head snake-body]
   (or
    (snake-collision? snake-head snake-body)
-   (out-of-boundary? snake-head)
+   (out-of-boundary? max-x max-y snake-head)
    (wall-collision? snake-head)))
 
 (defn random-coords
@@ -237,7 +236,7 @@
           tail (last body)]
       (swap! states assoc-in [:game/key-lock] false)
 
-      (when (lose? head body)
+      (when (lose? canvas head body)
         (game-reset! states canvas))
 
       (when-not (:game/pause @states)
