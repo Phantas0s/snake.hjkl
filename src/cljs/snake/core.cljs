@@ -222,27 +222,23 @@
     (message-box-show! (str "Level " level))))
 
 (defn game-reset!
-  [states]
+  [states canvas]
   (swap! states merge defaults)
   (update-text! hud-score-element (:game/score @states))
   (update-text! hud-level-element (:game/level @states))
   (level-reset! canvas states 1))
 
-(defn game-loop
+(defn game-loop!
   "Main game loop"
-  [tframe last-time]
+  [{:keys [:game/score :snake/body :snake/direction :snake/direction-queue]} states tframe last-time]
   (if (< tframe (+ last-time game-speed))
-    (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe last-time)))
-    (let [{:keys [:game/score
-                  :snake/body
-                  :snake/direction
-                  :snake/direction-queue]} @states
-          head (axis-add (first body) direction)
+    (js/window.requestAnimationFrame (fn [tframe] (game-loop! @states states tframe last-time)))
+    (let [head (axis-add (first body) direction)
           tail (last body)]
       (swap! states assoc-in [:game/key-lock] false)
 
       (when (lose? head body)
-        (game-reset! states))
+        (game-reset! states canvas))
 
       (when-not (:game/pause @states)
         (let [next-snake-direction (first direction-queue)]
@@ -275,7 +271,7 @@
           (update-text! hud-level-element (:game/level @states))
           (level-reset! canvas states new-level)))
 
-      (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))))
+      (js/window.requestAnimationFrame (fn [tframe] (game-loop! @states states tframe (js/window.performance.now)))))))
 
 ;; ------------------------------
 ;; Event handlers
@@ -315,7 +311,7 @@
   (canvas-reset! canvas)
   (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
   (events/listen message-box-element goog.events.EventType.CLICK on-retry)
-  (game-reset! states)
-  (game-loop (js/window.performance.now) 0))
+  (game-reset! states canvas)
+  (game-loop! @states states (js/window.performance.now) 0))
 
 (init)
