@@ -115,6 +115,14 @@
                width
                height)))
 
+(defn canvas-resize!
+  "Resize the canvas according to the states"
+  [canvas]
+  (let [{:keys [:element :width :height]} canvas]
+    (.setAttribute element "width" width)
+    (.setAttribute element "height" height)))
+
+
 ;; ------------------------------
 ;; Message box functions
 
@@ -129,13 +137,6 @@
   ([text]
    (set! (.-display (.-style message-box-element)) "block")
    (update-text! message-element text)))
-
-(defn resize-canvas!
-  "Resize the canvas according to the states"
-  [canvas]
-  (let [{:keys [:element :width :height]} canvas]
-    (.setAttribute element "width" width)
-    (.setAttribute element "height" height)))
 
 ;; ------------------------------
 ;; Helpers
@@ -203,22 +204,21 @@
    (out-of-boundary? snake-head)
    (wall-collision? snake-head)))
 
-(defn generate-food!
-  [body]
-  (let [{:keys [:max-x :max-y]} canvas]
-    (loop [rand-x (rand-int (:max-x canvas))
-           rand-y (rand-int (:max-y canvas))]
-      (let [food [rand-x rand-y]]
-        (if-not (or
-                 (snake-collision? food body)
-                 (wall-collision? food))
-          food
-          (recur (rand-int max-x) (rand-int max-y)))))))
+(defn random-coords
+  [canvas]
+  (map vector
+       (repeatedly #(rand-int (:max-x canvas)))
+       (repeatedly #(rand-int (:max-y canvas)))))
+
+(defn generate-food! [canvas body]
+  (some #(when-not (or (snake-collision? % body)
+                       (wall-collision? %)) %)
+        (random-coords canvas)))
 
 (defn level-reset!
   [canvas level]
   (canvas-reset! canvas)
-  (let [food (generate-food! (:body snake-defaults))]
+  (let [food (generate-food! canvas (:body snake-defaults))]
     (draw-circle! canvas food food-color)
     (swap! states assoc-in [:snake/food] food)
     (draw-wall-level! level wall-color)
@@ -227,7 +227,7 @@
 (defn game-reset!
   []
   (swap! states merge defaults)
-  (update-text! (:game/level @states) hud-level-element)
+  (update-text!  hud-level-element (:game/level @states))
   (level-reset! canvas 1))
 
 (defn game-loop
@@ -241,7 +241,6 @@
                   :snake/direction-queue]} @states
           head (axis-add (first body) direction)
           tail (last body)]
-      (update-text! score hud-score-element)
       (swap! states assoc-in [:game/key-lock] false)
 
       (when (lose? head body)
@@ -255,12 +254,15 @@
                    :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
         (draw-rect! canvas head snake-color)
         (if (eat-food? head)
-          (let [food (generate-food! body)]
+          (let [food (generate-food! canvas body)
+                new-score (+ score food-points)]
             (swap! states assoc
-                   :game/score (+ score food-points)
+                   :game/score new-score
                    :snake/body (conj body head)
                    :snake/food food)
-            (draw-circle! canvas food food-color))
+            (draw-circle! canvas food food-color)
+            (update-text! hud-score-element new-score))
+
           (do
             (swap! states assoc-in [:snake/body] (drop-last (conj body head)))
             (draw-rect! canvas tail (:background-color canvas)))))
@@ -272,7 +274,7 @@
                  (assoc {}
                         :game/level new-level
                         :game/pause true))
-          (update-text! (:game/level @states) hud-level-element)
+          (update-text! hud-level-element (:game/level @states))
           (level-reset! canvas new-level)))
 
       (js/window.requestAnimationFrame (fn [tframe] (game-loop tframe (js/window.performance.now)))))))
@@ -292,6 +294,10 @@
   [event]
   (when (= (.-keyCode event) goog.events.KeyCodes.ENTER)
     (on-retry event))
+  (when (= (.-keyCode event) goog.events.KeyCodes.SPACE)
+    (swap! states assoc-in [:game/pause] true)
+    (message-box-show! "Break!"))
+
   (let [{:keys [:snake/direction]} @states
         new-direction (keycode->direction (.-keyCode event))]
     (if (:game/key-lock @states)
@@ -307,7 +313,7 @@
 (defn init
   "Reset the states, create the events and run the game"
   []
-  (resize-canvas! canvas)
+  (canvas-resize! canvas)
   (canvas-reset! canvas)
   (events/listen js/document goog.events.EventType.KEYDOWN on-keydown)
   (events/listen message-box-element goog.events.EventType.CLICK on-retry)

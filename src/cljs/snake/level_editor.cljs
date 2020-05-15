@@ -28,7 +28,10 @@
          result []]
     (if (>= next-y y-total)
       result
-      (recur (inc next-y) (into result (map create-unit (map vector (range 0 x-total) (repeat x-total next-y))))))))
+      (recur (inc next-y) (into result (map create-unit
+                                            (map vector
+                                                 (range 0 x-total)
+                                                 (repeat x-total next-y))))))))
 
 (set! (.-innerHTML board) (clojure.string/join (create-board-elements 0 20 20)))
 
