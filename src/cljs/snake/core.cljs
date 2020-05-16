@@ -81,7 +81,7 @@
 
 (defn draw-circle!
   "Draw a circle on canvas"
-  [{:keys [:ctx :unit/width :unit/height]} [x y] color]
+  [{:keys [:ctx :unit/width :unit/height] :as canvas} [x y] color]
   (aset ctx "fillStyle" color)
   (.beginPath ctx)
   (.arc ctx
