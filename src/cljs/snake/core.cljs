@@ -17,7 +17,8 @@
 (def canvas (let [width 640
                   height 640
                   unit-width 32
-                  unit-height 32]
+                  unit-height 32
+                  canvas (dom/getElement "canvas")]
               {:width width
                :height height
                :unit/width unit-width
@@ -25,8 +26,8 @@
                :max-x (/ width unit-width)
                :max-y (/ height unit-height)
                :background-color "#303030"
-               :element (dom/getElement "canvas")
-               :ctx (.getContext (dom/getElement "canvas") "2d")}))
+               :element canvas
+               :ctx (.getContext canvas "2d")}))
 
 (def message-element (.getElementById js/document "message"))
 (def message-box-element (.getElementById js/document "message-box"))
@@ -40,8 +41,15 @@
 (def wall-color "#000000")
 (def game-speed 150)
 
+(def directions {:up [0 -1]
+                 :down [0 1]
+                 :left [-1 0]
+                 :right [1 0]})
+
+
 ;; ------------------------------
 ;; Mutable states
+
 
 (defonce states
   (atom {})) ; states are merged with defaults at game-reset!
@@ -81,7 +89,7 @@
 
 (defn draw-circle!
   "Draw a circle on canvas"
-  [{:keys [:ctx :unit/width :unit/height] :as canvas} [x y] color]
+  [{:keys [:ctx :unit/width :unit/height]} [x y] color]
   (aset ctx "fillStyle" color)
   (.beginPath ctx)
   (.arc ctx
@@ -99,7 +107,7 @@
   (set! (.-innerHTML element) text))
 
 (defn draw-wall-level!
-  [level wall-color]
+  [canvas level wall-color]
   (doseq [w (get-walls level)]
     (draw-rect! canvas w wall-color)))
 
@@ -168,19 +176,19 @@
 
 (defn keycode->direction
   "Convert JavaScript keycode to direction array"
-  [keycode]
-  (get {(keycodes :K) [0 -1] ;up
-        (keycodes :J) [0 1] ;down
-        (keycodes :H) [-1 0] ;left
-        (keycodes :L) [1 0]} ;right
+  [{:keys [:up :down :left :right]} keycode]
+  (get {(keycodes :K) up
+        (keycodes :J) down
+        (keycodes :H) left
+        (keycodes :L) right}
        keycode nil))
 
 ;; ------------------------------
 ;; Game Mechanics
 
 (defn opposite-direction?
-  [dir1 dir2]
-  (= [0 0] (axis-add dir1 dir2)))
+  [dir-1 dir-2]
+  (= [0 0] (axis-add dir-1 dir-2)))
 
 (defn out-of-boundary?
   "Check if axis is exceed the game board boundary."
@@ -188,14 +196,12 @@
   (or (>= x max-x) (< x 0) (>= y max-y) (< y 0)))
 
 (defn eat-food?
-  [[x y]]
-  (let [{:keys [:snake/food]} @states]
-    (= [x y] food)))
+  [{:keys [:snake/food]} [x y]]
+  (= [x y] food))
 
 (defn next-level?
-  []
-  (let [{:keys [:game/score :game/level]} @states]
-    (>= score (* level next-level-score))))
+  [{:keys [:game/score :game/level]}]
+  (>= score (* level next-level-score)))
 
 (defn lose?
   [{:keys [:max-x :max-y]} snake-head snake-body]
@@ -205,16 +211,16 @@
    (wall-collision? snake-head)))
 
 (defn random-coords
-  [max-x max-y]
+  [{:keys [:max-x :max-y]}]
   (map vector
        (repeatedly #(rand-int max-x))
        (repeatedly #(rand-int max-y))))
 
 (defn generate-food!
-  [{:keys [:max-x :max-y]} body]
+  [canvas body]
   (some #(when-not (or (snake-collision? % body)
                        (wall-collision? %)) %)
-        (random-coords max-x max-y)))
+        (random-coords canvas)))
 
 (defn level-reset!
   [canvas states level]
@@ -222,7 +228,7 @@
   (let [food (generate-food! canvas (:body snake-defaults))]
     (draw-circle! canvas food food-color)
     (swap! states assoc-in [:snake/food] food)
-    (draw-wall-level! level wall-color)
+    (draw-wall-level! canvas level wall-color)
     (message-box-show! (str "Level " level))))
 
 (defn game-reset!
@@ -251,7 +257,7 @@
                    :snake/direction next-snake-direction
                    :snake/direction-queue (drop 1 (:snake/direction-queue @states)))))
         (draw-rect! canvas head snake-color)
-        (if (eat-food? head)
+        (if (eat-food? @states head)
           (let [food (generate-food! canvas body)
                 new-score (+ score food-points)]
             (swap! states assoc
@@ -265,7 +271,7 @@
             (swap! states assoc-in [:snake/body] (drop-last (conj body head)))
             (draw-rect! canvas tail (:background-color canvas)))))
 
-      (when (next-level?)
+      (when (next-level? @states)
         (let [new-level (inc (:game/level @states))]
           (swap! states merge
                  snake-defaults
@@ -297,7 +303,7 @@
     (message-box-show! "Break!"))
 
   (let [{:keys [:snake/direction]} @states
-        new-direction (keycode->direction (.-keyCode event))]
+        new-direction (keycode->direction directions (.-keyCode event))]
     (if (:game/key-lock @states)
       (swap! states assoc-in [:snake/direction-queue] (conj (:game/key-queue @states) new-direction))
       (when (and new-direction (not (opposite-direction? direction new-direction)))
