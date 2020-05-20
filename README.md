@@ -6,6 +6,12 @@ This is a simple snake game where you *must* use the keys `h`, `j`, `k` and `l` 
 
 This game is based on a true story.
 
+## Build
+
+You need the [clojure-cli](https://clojure.org/guides/deps_and_cli) tool to build the project. You might have it if clojure is installed on your machine.
+
+Then, simply run `clojure -A:dev`.
+
 ## Why using the keys h,j,k and l?
 
 In many CLI and specifically Vim, you can use the keys `hjkl` to move around, instead of using the arrow keys.
