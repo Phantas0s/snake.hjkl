@@ -1,2 +1,0 @@
-{:require [snake.level-editor]
- :compiler-options {:asset-path "js/level.out"}}

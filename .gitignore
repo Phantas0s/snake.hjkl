@@ -1,5 +1,7 @@
-target/*
-out/*
-.nrepl-history
-.nrepl-port
-deploy.sh
+target/
+resources/public/*.js
+resources/public/*.out
+.*
+!.gitignore
+main-out/
+out/

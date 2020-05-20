@@ -1,2 +1,0 @@
-{:require [snake.core]
- :compiler-options {:asset-path "js/main.out"}}

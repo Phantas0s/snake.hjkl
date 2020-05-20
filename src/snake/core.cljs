@@ -1,4 +1,4 @@
-(ns snake.engine
+(ns snake.core
   (:require [goog.dom :as dom]
             [goog.events :as events]
             [goog.events.KeyCodes]

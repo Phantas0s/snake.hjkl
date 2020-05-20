@@ -1,3 +1,5 @@
+; Keep in here for reference - not used
+
 (set-env!
  :source-paths #{"src/cljs"}
  :resource-paths #{"html"}

@@ -1,5 +1,5 @@
-(ns snake.core
-  (:require [snake.engine :as c]))
+(ns snake.start
+  (:require [snake.core :as c]))
 
 (def game-speed 150)
 
