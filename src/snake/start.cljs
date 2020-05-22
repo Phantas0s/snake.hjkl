@@ -12,9 +12,6 @@
         (js/requestAnimationFrame
          (fn [ts] (game-loop! ts (js/window.performance.now)))))))
 
-(defn init
-  []
-  (c/init)
-  (game-loop! 0 (js/window.performance.now)))
-
-(init)
+(defonce init
+  (do (c/init)
+      (game-loop! 0 (js/window.performance.now))))
