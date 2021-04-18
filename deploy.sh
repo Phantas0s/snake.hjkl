@@ -1,5 +1,5 @@
 #!/bin/bash
-# This is the fanciest way to deploy you'll ever see
+# This is the fanciest way to deploy you'll ever see :D
 
-boot prod
-rsync -arvz target/ prod:/usr/share/nginx/html/matthieucneude/snake/
+clj -M:prod:play-cljc
+rsync -arvz resources/public/* prod:/usr/share/nginx/html/mouseless/snake

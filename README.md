@@ -6,11 +6,15 @@ This is a simple snake game where you *must* use the keys `h`, `j`, `k` and `l` 
 
 This game is based on a true story.
 
-## Build
+## Running It On Your Local Machine
 
 You need the [clojure-cli](https://clojure.org/guides/deps_and_cli) tool to build the project. You might have it if clojure is installed on your machine.
 
-Then, simply run `clojure -A:dev`.
+Then, simply run `clojure -M:dev`.
+
+## Build 
+
+To build the game in `resources/public`, run `clojure -M:prod:play-cljc`.
 
 ## Why using the keys h,j,k and l?
 
